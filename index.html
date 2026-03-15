@@ -241,11 +241,11 @@
   .screen-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 2px; }
   .screen-content::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
 
-  /* Playlist grid */
+  /* Playlist list */
   .playlist-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .pl-card {
@@ -254,28 +254,32 @@
     cursor: pointer;
     transition: all 0.15s;
     overflow: hidden;
+    display: flex;
+    align-items: center;
   }
 
-  .pl-card:hover { border-color: var(--teal); transform: translateY(-3px); }
-  .pl-card.selected { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(29,185,84,0.25); }
+  .pl-card:hover { border-color: var(--teal); background: rgba(255,255,255,0.07); }
+  .pl-card.selected { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(29,185,84,0.25); background: rgba(29,185,84,0.06); }
 
   .pl-img {
-    width: 100%; aspect-ratio: 1;
+    width: 52px; height: 52px;
+    flex-shrink: 0;
     object-fit: cover;
     display: block;
     background: #1a1a2e;
   }
 
   .pl-img-placeholder {
-    width: 100%; aspect-ratio: 1;
+    width: 52px; height: 52px;
+    flex-shrink: 0;
     background: linear-gradient(135deg, #1a1a2e, #0d2818);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 40px;
+    font-size: 22px;
   }
 
-  .pl-info { padding: 12px; }
+  .pl-info { padding: 8px 12px; flex: 1; min-width: 0; }
 
   .pl-name {
     font-size: 12px;
@@ -1064,14 +1068,20 @@ async function loadPlaylists() {
     url = data.next ? data.next.replace('https://api.spotify.com/v1','') : null;
   }
   playlists = allPlaylists.filter(p => p && p.tracks && p.tracks.total > 0);
+  // Prepend Liked Songs as a virtual playlist
+  const likedData = await spotifyFetch('/me/tracks?limit=1');
+  if (likedData && typeof likedData.total === 'number' && likedData.total > 0) {
+    playlists.unshift({ id: '__liked__', name: '♥ Liked Songs', images: [], tracks: { total: likedData.total } });
+  }
   renderPlaylistGrid();
 }
 
 function playlistCardHtml(pl) {
   const img = pl.images && pl.images[0] ? pl.images[0].url : null;
+  const icon = pl.id === '__liked__' ? '♥' : '♪';
   const imgEl = img
     ? `<img class="pl-img" src="${img}" alt="" loading="lazy">`
-    : `<div class="pl-img-placeholder">🎵</div>`;
+    : `<div class="pl-img-placeholder">${icon}</div>`;
   const total = pl.tracks ? pl.tracks.total : '?';
   return `<div class="pl-card ${selectedPlaylistId === pl.id ? 'selected' : ''}" data-id="${pl.id}" data-name="${escHtml(pl.name)}" onclick="selectPlaylist(this.dataset.id,this.dataset.name)">${imgEl}<div class="pl-info"><div class="pl-name">${escHtml(pl.name)}</div><div class="pl-count">${total} tracks</div></div></div>`;
 }
@@ -1159,7 +1169,7 @@ async function refreshDevices() {
   const data = await spotifyFetch('/me/player/devices');
   if (!data || !data.devices || !data.devices.length) {
     deviceId = null;
-    if (statusEl) statusEl.textContent = 'Open Spotify app first';
+    if (statusEl) statusEl.textContent = 'Open Spotify, start a song, then tap ↺';
     return;
   }
   const active = data.devices.find(d => d.is_active) || data.devices[0];
@@ -1174,7 +1184,7 @@ async function playTrack(uri) {
   if (!deviceId && isIOS) await refreshDevices();
   if (!deviceId) {
     const statusEl = document.getElementById('player-status');
-    if (statusEl) statusEl.textContent = isIOS ? 'Open Spotify app first, then tap ↺' : 'Player not ready';
+    if (statusEl) statusEl.textContent = isIOS ? 'Open Spotify, start a song, then tap ↺' : 'Player not ready';
     return;
   }
   const statusEl = document.getElementById('player-status');
@@ -1227,9 +1237,12 @@ async function startGame() {
   document.getElementById('loading-error').style.display = 'none';
   document.getElementById('loading-text').textContent = 'Loading tracks…';
 
-  // Fetch all tracks from playlist
+  // Fetch all tracks from playlist (or Liked Songs)
+  const isLikedPlaylist = selectedPlaylistId === '__liked__';
   let tracks = [];
-  let url = `/playlists/${selectedPlaylistId}/tracks?limit=100&fields=next,items(track(id,name,uri,external_ids,album(release_date,images),artists(name)))`;
+  let url = isLikedPlaylist
+    ? '/me/tracks?limit=50&fields=next,items(track(id,name,uri,external_ids,album(release_date,images),artists(name)))'
+    : `/playlists/${selectedPlaylistId}/tracks?limit=100&fields=next,items(track(id,name,uri,external_ids,album(release_date,images),artists(name)))`;
   while (url) {
     const data = await spotifyFetch(url);
     if (!data) break;
@@ -1258,8 +1271,11 @@ async function startGame() {
     return;
   }
 
-  // Shuffle & slice to pool first, then enrich only the pool tracks
-  tracks = tracks.sort(() => Math.random() - 0.5);
+  // Fisher-Yates shuffle for uniform randomness
+  for (let i = tracks.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
+  }
   const poolSize = Math.min(parseInt(document.getElementById('num-pool').value) || 50, tracks.length);
   winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 20, poolSize - 1);
   gameCards = tracks.slice(0, poolSize);
@@ -1564,7 +1580,7 @@ function endGame() {
     plEl.textContent = selectedPlaylistName;
     plEl.style.display = '';
     if (gameMode === 'standard') {
-      tokenStatsEl.innerHTML = `🎫 +${tokensEarned} earned &nbsp;·&nbsp; 💀 −${tokensSpent} spent &nbsp;·&nbsp; ● ${Math.max(0, tokens)} remaining`;
+      tokenStatsEl.innerHTML = `♥ +${tokensEarned} earned &nbsp;·&nbsp; 💔 −${tokensSpent} spent &nbsp;·&nbsp; ♥ ${Math.max(0, tokens)} remaining`;
       tokenStatsEl.style.display = '';
     } else {
       tokenStatsEl.style.display = 'none';
@@ -1618,7 +1634,11 @@ function renderTimeline(interactive = false) {
       <div class="t-title">${escHtml(card.title)}</div>
       <div class="t-artist">${escHtml(card.artist)}</div>
     </div>`;
-    html += mkDrop(i + 1, `After ${card.year}`);
+    // Only show a drop zone if the next card has a different year (no point placing between same-year cards)
+    const nextCard = sorted[i + 1];
+    if (!nextCard || nextCard.year !== card.year) {
+      html += mkDrop(i + 1, `After ${card.year}`);
+    }
   });
 
   const inner = html || `<div style="font-size:11px;color:rgba(255,255,255,0.2);padding:0 4px">—</div>`;
@@ -1652,12 +1672,26 @@ async function searchPlaylists(query) {
 
 async function loadRecommendedPlaylists() {
   const ids = [
-    '37i9dQZF1DX4UtSsGT1Sbe', // All Out 80s
-    '37i9dQZF1DXbTxeAdrVG2l', // All Out 90s
-    '37i9dQZF1DX4o1oenSJRJd', // All Out 2000s
-    '37i9dQZF1DX10zKzsJ2jva', // All Out 70s
+    // ── Add your own playlist IDs here ───────────────────────────────
+    '4oYTRg0JI48jucsJOLily1', // 
+    // ── Rock ──────────────────────────────────────────────────────────
     '37i9dQZF1DWXRqgorJj26U', // Rock Classics
-    '37i9dQZF1DXcBWIGoYBM5M', // Today's Top Hits
+    '37i9dQZF1DX1rVvRgjX59F', // Classic Rock Drive
+    '37i9dQZF1DX9sQDbOMReFI', // Rock Hard
+
+    // ── Pop ───────────────────────────────────────────────────────────
+    '37i9dQZF1DXarRysLJmuju', // Soft Pop Hits
+    '37i9dQZF1DX1ngEVM0lKrb', // Pop classics
+
+    // ── Hip-Hop ───────────────────────────────────────────────────────
+    '37i9dQZF1DX0XUsuxWHRQd', // RapCaviar Classics
+    '37i9dQZF1DX2RxBh64BHjQ', // Most Necessary (90s/00s Hip-Hop)
+    '37i9dQZF1DXd9rSDyQguIk', // Hip-Hop Classics
+
+    // ── EDM / Electronic ─────────────────────────────────────────────
+    '37i9dQZF1DX4dyzvuaRJ0n', // mint (EDM)
+    '37i9dQZF1DX8tZsk88tuRC', // Dance Classics
+    '37i9dQZF1DX6GwdWRQMQpq', // Electronic Classics
   ];
   const results = await Promise.all(
     ids.map(id => spotifyFetch(`/playlists/${id}?fields=id,name,images,tracks(total)`).catch(() => null))
@@ -1698,13 +1732,20 @@ async function acSearch(type, query) {
   const dropId = type === 'artist' ? 'ac-artist-drop' : 'ac-title-drop';
   const drop = document.getElementById(dropId);
   if (!drop) return;
-  const data = await spotifyFetch(`/search?type=${type === 'artist' ? 'artist' : 'track'}&q=${encodeURIComponent(query)}&limit=6`);
+  const data = await spotifyFetch(`/search?type=${type === 'artist' ? 'artist' : 'track'}&q=${encodeURIComponent(query)}&limit=12`);
   if (!data) return;
   const items = type === 'artist'
     ? (data.artists ? data.artists.items : [])
     : (data.tracks ? data.tracks.items : []);
   if (!items || !items.length) { drop.style.display = 'none'; return; }
-  drop.innerHTML = items.slice(0, 6).map(item =>
+  const seen = new Set();
+  const deduped = items.filter(item => {
+    const key = item.name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  drop.innerHTML = deduped.slice(0, 6).map(item =>
     `<div class="ac-item" data-type="${type}" data-value="${escHtml(item.name)}" onclick="selectAcFromEl(this)">${escHtml(item.name)}</div>`
   ).join('');
   drop.style.display = 'block';
