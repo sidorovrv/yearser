@@ -653,44 +653,7 @@
   </div>
 </div>
 
-<!-- ===== SETUP SCREEN ===== -->
-<div id="setup" class="screen">
-  <div class="setup-inner">
-    <div class="logo-block">
-      <div class="logo-line">HITSTER</div>
-      <div class="tagline">Spotify Edition</div>
-    </div>
-
-    <div class="setup-card" id="dev-setup-card">
-      <div class="setup-card-title">One-time Setup</div>
-      <div class="step-row">
-        <div class="step-num">1</div>
-        <div class="step-text">Go to <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a> and create a free app.</div>
-      </div>
-      <div class="step-row">
-        <div class="step-num">2</div>
-        <div class="step-text">In your app settings, add this page's URL as a <strong>Redirect URI</strong>.<br>e.g. <code id="redirect-uri-display">https://yourusername.github.io/hitster/</code></div>
-      </div>
-      <div class="step-row">
-        <div class="step-num">3</div>
-        <div class="step-text">Copy your <strong>Client ID</strong> from the dashboard and paste it below.</div>
-      </div>
-
-      <div style="margin-top:20px">
-        <label>Spotify Client ID</label>
-        <input type="text" id="client-id-input" placeholder="e.g. 1a2b3c4d5e6f..." maxlength="64" oninput="saveClientId()">
-      </div>
-
-      <div id="setup-error" class="error-box" style="display:none"></div>
-    </div>
-
-    <button class="btn btn-spotify" onclick="loginWithSpotify()">
-      <svg class="spotify-icon" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-      Connect with Spotify
-    </button>
-  </div>
-</div>
-
+<!-- ===== PLAYLIST PICKER ===== -->
 <!-- ===== PLAYLIST PICKER ===== -->
 <div id="picker" class="screen">
   <div class="screen-header">
@@ -796,10 +759,6 @@
 // ============================================================
 const HARDCODED_CLIENT_ID = '__SPOTIFY_CLIENT_ID__';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
-
-function isClientIdHardcoded() {
-  return HARDCODED_CLIENT_ID !== '__SPOTIFY_CLIENT_ID__' && HARDCODED_CLIENT_ID.length > 0;
-}
 const SCOPES = [
   'user-read-private',
   'user-read-email',
@@ -836,24 +795,16 @@ let spotifyPlayer = null;
 //  INIT — handle OAuth callback or show setup
 // ============================================================
 window.onload = async () => {
-  document.getElementById('redirect-uri-display').textContent = REDIRECT_URI;
-
-  // Restore saved client ID
-  const saved = localStorage.getItem('hitster_client_id');
-  if (saved) document.getElementById('client-id-input').value = saved;
-
   const params = new URLSearchParams(window.location.hash.replace('#','?') || window.location.search);
   const token = params.get('access_token');
-  const code = params.get('code');
   const error = params.get('error');
 
   if (error) {
-    showSetup('Spotify login was cancelled or failed. Please try again.');
+    showError('Spotify login was cancelled or failed. Please try again.');
     return;
   }
 
   if (token) {
-    // Implicit grant flow — token in hash
     accessToken = token;
     const expiresIn = parseInt(params.get('expires_in') || '3600');
     tokenExpiry = Date.now() + expiresIn * 1000;
@@ -864,7 +815,6 @@ window.onload = async () => {
     return;
   }
 
-  // Check stored token
   const storedToken = localStorage.getItem('hitster_token');
   const storedExpiry = parseInt(localStorage.getItem('hitster_token_expiry') || '0');
   if (storedToken && Date.now() < storedExpiry - 30000) {
@@ -874,37 +824,10 @@ window.onload = async () => {
     return;
   }
 
-  // If the Client ID is baked in at deploy time, skip the setup screen entirely
-  // and send the user straight to Spotify's login page.
-  if (isClientIdHardcoded()) {
-    loginWithSpotify();
-    return;
-  }
-
-  showSetup();
+  loginWithSpotify();
 };
 
-function showSetup(err) {
-  if (isClientIdHardcoded()) {
-    // Never show the setup form to end-users.
-    // If there's an error, display it on the loading screen with a retry button.
-    // If there's no error, go straight to Spotify login.
-    if (err) {
-      showHardcodedError(err);
-    } else {
-      loginWithSpotify();
-    }
-    return;
-  }
-  goTo('setup');
-  if (err) {
-    const el = document.getElementById('setup-error');
-    el.textContent = err;
-    el.style.display = 'block';
-  }
-}
-
-function showHardcodedError(msg) {
+function showError(msg) {
   goTo('loading');
   document.getElementById('loading-spinner').style.display = 'none';
   document.getElementById('loading-text').style.display = 'none';
@@ -912,23 +835,14 @@ function showHardcodedError(msg) {
   document.getElementById('loading-error-msg').textContent = msg;
 }
 
-function saveClientId() {
-  const val = document.getElementById('client-id-input').value.trim();
-  if (val) localStorage.setItem('hitster_client_id', val);
-}
-
 function getClientId() {
-  if (isClientIdHardcoded()) return HARDCODED_CLIENT_ID;
-  return document.getElementById('client-id-input').value.trim() ||
-         localStorage.getItem('hitster_client_id') || '';
+  return HARDCODED_CLIENT_ID;
 }
 
 function loginWithSpotify() {
   const clientId = getClientId();
-  if (!clientId) {
-    const el = document.getElementById('setup-error');
-    el.textContent = 'Please enter your Spotify Client ID first.';
-    el.style.display = 'block';
+  if (!clientId || clientId === '__SPOTIFY_CLIENT_ID__') {
+    showError('No Spotify Client ID configured. Please deploy via GitHub Actions with the SPOTIFY_CLIENT_ID secret set.');
     return;
   }
   const url = new URL('https://accounts.spotify.com/authorize');
@@ -944,11 +858,7 @@ function logout() {
   localStorage.removeItem('hitster_token');
   localStorage.removeItem('hitster_token_expiry');
   accessToken = null;
-  if (isClientIdHardcoded()) {
-    loginWithSpotify();
-  } else {
-    goTo('setup');
-  }
+  loginWithSpotify();
 }
 
 // ============================================================
@@ -994,7 +904,7 @@ async function initApp() {
     goTo('picker');
   } catch(e) {
     console.error(e);
-    showSetup('Failed to connect. Check your Client ID and try again.');
+    showError('Failed to connect to Spotify. Please try again.');
   }
 }
 
