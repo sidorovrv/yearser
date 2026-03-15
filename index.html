@@ -649,6 +649,12 @@
   .mode-btn:hover { border-color: rgba(255,255,255,0.4); color: var(--cream); }
   .mode-btn.active { border-color: var(--teal); color: var(--teal); background: rgba(29,185,84,0.1); }
   .mode-btn.active-red { border-color: var(--red); color: var(--red); background: rgba(230,51,41,0.1); }
+  .ac-wrap { position: relative; }
+  .ac-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--cream); padding: 8px 12px; font-family: 'DM Mono', monospace; font-size: 11px; outline: none; transition: border-color 0.15s; }
+  .ac-input:focus { border-color: var(--teal); }
+  .ac-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #111; border: 1px solid rgba(255,255,255,0.12); border-top: none; z-index: 200; max-height: 140px; overflow-y: auto; display: none; }
+  .ac-item { padding: 7px 12px; font-size: 11px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ac-item:hover, .ac-item.ac-selected { background: rgba(29,185,84,0.15); color: var(--teal); }
 </style>
 </head>
 <body>
@@ -681,13 +687,23 @@
       <div class="empty-state">Loading playlists…</div>
     </div>
   </div>
-  <div class="picker-footer">
-    <div class="num-input-wrap">
-      <label>Cards</label>
-      <input type="number" id="num-cards" value="20" min="5" max="50">
+  <div class="picker-footer" style="flex-direction:column;align-items:stretch;gap:12px">
+    <div style="display:flex;gap:8px">
+      <button class="mode-btn active" id="mode-standard" onclick="setMode('standard')">♟ Standard</button>
+      <button class="mode-btn" id="mode-hardcore" onclick="setMode('hardcore')">☠ Hardcore</button>
     </div>
-    <button class="btn btn-primary" onclick="startGame()" style="flex:1">☠ &nbsp;Play Hardcore</button>
-    <button class="btn btn-ghost" onclick="logout()">Log out</button>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="num-input-wrap">
+        <label>Pool</label>
+        <input type="number" id="num-pool" value="50" min="10" max="100">
+      </div>
+      <div class="num-input-wrap">
+        <label>Win at</label>
+        <input type="number" id="num-win" value="20" min="5" max="50">
+      </div>
+      <button class="btn btn-primary" id="start-btn" onclick="startGame()" style="flex:1">♟ Play Standard</button>
+      <button class="btn btn-ghost" onclick="logout()">Log out</button>
+    </div>
   </div>
 </div>
 
@@ -702,6 +718,10 @@
       </div>
     </div>
     <div class="score-wrap">
+      <div id="token-wrap" style="display:none;text-align:right;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:5px;margin-bottom:5px">
+        <div style="font-size:9px;letter-spacing:0.2em;color:rgba(255,255,255,0.3);text-transform:uppercase">Tokens</div>
+        <div id="token-count" style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--gold);line-height:1">3</div>
+      </div>
       <div class="score-label-sm">Score</div>
       <div class="score-big" id="g-score">0</div>
     </div>
@@ -752,9 +772,12 @@
 
 <!-- ===== GAME OVER ===== -->
 <div id="gameover" class="screen">
+  <div id="go-mode" style="font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:-8px"></div>
   <div class="go-title" id="go-title">GAME OVER</div>
   <div class="go-score" id="go-score"></div>
   <div class="go-context" id="go-context"></div>
+  <div id="go-playlist" style="display:none;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal);margin-top:-6px"></div>
+  <div id="go-token-stats" style="display:none;font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;margin-top:4px"></div>
   <div id="go-eliminated-card" style="display:none;text-align:center;margin-top:12px;max-width:320px"></div>
   <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:24px">
     <button class="btn btn-primary" onclick="startGame()">▶ Play Again</button>
@@ -802,6 +825,16 @@ let deviceId = null; // Spotify Connect device
 let spotifyPlayer = null;
 let recommendedPlaylists = [];
 let searchTimeout = null;
+
+// Mode & token state
+let gameMode = 'standard';
+let tokens = 3;
+let tokensEarned = 0;
+let tokensSpent = 0;
+let winTarget = 20;
+let pendingArtistGuess = null;
+let pendingTitleGuess = null;
+let acTimers = {};
 
 // ============================================================
 //  PKCE HELPERS
@@ -1181,12 +1214,19 @@ async function startGame() {
 
   // Shuffle & slice
   tracks = tracks.sort(() => Math.random() - 0.5);
-  const numCards = Math.min(parseInt(document.getElementById('num-cards').value) || 20, tracks.length);
-  gameCards = tracks.slice(0, numCards);
+  const poolSize = Math.min(parseInt(document.getElementById('num-pool').value) || 50, tracks.length);
+  winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 20, poolSize - 1);
+  gameCards = tracks.slice(0, poolSize);
   gameIndex = 0;
   gameScore = 0;
   gameTimeline = [];
   pendingPlacementIndex = null;
+  pendingArtistGuess = null;
+  pendingTitleGuess = null;
+  lastCard = null;
+  tokens = 3;
+  tokensEarned = 0;
+  tokensSpent = 0;
 
   // Auto-place the first card as a visible reference point
   gameTimeline.push({...gameCards[0]});
@@ -1194,6 +1234,7 @@ async function startGame() {
 
   document.getElementById('g-pl-name').textContent = selectedPlaylistName;
   updateScore();
+  updateTokenDisplay();
   goTo('game');
   loadCard();
 }
@@ -1205,12 +1246,20 @@ function loadCard() {
   if (gameIndex >= gameCards.length) { endGame(); return; }
   const card = gameCards[gameIndex];
   pendingPlacementIndex = null;
+  pendingArtistGuess = null;
+  pendingTitleGuess = null;
   isPlaying = false;
+  updateTokenDisplay();
 
   // Counter
   const counter = document.getElementById('g-counter');
-  counter.textContent = `☠ Song ${gameIndex} / ${gameCards.length - 1}`;
-  counter.style.color = 'var(--red)';
+  if (gameMode === 'hardcore') {
+    counter.textContent = `☠ ${gameIndex} / ${gameCards.length - 1}`;
+    counter.style.color = 'var(--red)';
+  } else {
+    counter.textContent = `♟ ${gameIndex} / ${gameCards.length - 1} · ${winTarget - gameScore} to win`;
+    counter.style.color = 'rgba(29,185,84,0.7)';
+  }
 
   // Obscure all song info until the player locks in their guess
   const titleEl = document.getElementById('g-title');
@@ -1248,10 +1297,22 @@ function loadCard() {
 
 function setControls(mode) {
   const el = document.getElementById('game-controls');
+  const guessBlock = gameMode === 'standard' ? `
+    <div style="width:100%;max-width:340px;margin-bottom:10px">
+      <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:8px">Guess for +1 token (optional)</div>
+      <div class="ac-wrap" style="margin-bottom:6px">
+        <input class="ac-input" id="ac-artist" type="text" placeholder="Artist name…" value="${escHtml(pendingArtistGuess||'')}" oninput="onAcInput('artist',this.value)" autocomplete="off">
+        <div class="ac-dropdown" id="ac-artist-drop"></div>
+      </div>
+      <div class="ac-wrap">
+        <input class="ac-input" id="ac-title" type="text" placeholder="Song title…" value="${escHtml(pendingTitleGuess||'')}" oninput="onAcInput('title',this.value)" autocomplete="off">
+        <div class="ac-dropdown" id="ac-title-drop"></div>
+      </div>
+    </div>` : '';
   if (mode === 'place-hint') {
-    el.innerHTML = `<div style="font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:0.08em;text-align:center;padding:4px 0">↑ Tap a gap in the timeline to place your guess ↑</div>`;
+    el.innerHTML = guessBlock + `<div style="font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:0.08em;text-align:center;padding:4px 0">↑ Tap a gap in the timeline to place your guess ↑</div>`;
   } else if (mode === 'confirm') {
-    el.innerHTML = `
+    el.innerHTML = guessBlock + `
       <div style="font-size:11px;color:var(--teal);letter-spacing:0.08em;text-align:center;padding:4px 0">Tap another gap to move — or lock it in</div>
       <div class="controls-row"><button class="btn btn-primary" onclick="confirmPlacement()">✓ &nbsp;Lock In</button></div>`;
   } else if (mode === 'next') {
@@ -1262,6 +1323,12 @@ function setControls(mode) {
 }
 
 function tentativePlaceCard(insertIndex) {
+  if (gameMode === 'standard') {
+    const ae = document.getElementById('ac-artist');
+    const te = document.getElementById('ac-title');
+    if (ae) pendingArtistGuess = ae.value;
+    if (te) pendingTitleGuess = te.value;
+  }
   pendingPlacementIndex = insertIndex;
   setControls('confirm');
   renderTimeline(true);
@@ -1269,6 +1336,13 @@ function tentativePlaceCard(insertIndex) {
 
 function confirmPlacement() {
   if (pendingPlacementIndex === null) return;
+  // Capture latest input values before rebuilding UI
+  if (gameMode === 'standard') {
+    const ae = document.getElementById('ac-artist');
+    const te = document.getElementById('ac-title');
+    if (ae) pendingArtistGuess = ae.value;
+    if (te) pendingTitleGuess = te.value;
+  }
   const card = gameCards[gameIndex];
   const sorted = getSorted();
   const insertIndex = pendingPlacementIndex;
@@ -1297,19 +1371,57 @@ function confirmPlacement() {
 
   pendingPlacementIndex = null;
 
+  // Check name bonus (standard only: both artist AND title must be correct)
+  let nameBonus = false;
+  if (gameMode === 'standard' && pendingArtistGuess && pendingTitleGuess) {
+    const cardArtists = card.artist.toLowerCase().split(/,\s*/);
+    const artistOk = cardArtists.some(a => a === pendingArtistGuess.trim().toLowerCase());
+    const titleOk = pendingTitleGuess.trim().toLowerCase() === card.title.toLowerCase();
+    if (artistOk && titleOk) {
+      nameBonus = true;
+      tokens++;
+      tokensEarned++;
+    }
+  }
+  pendingArtistGuess = null;
+  pendingTitleGuess = null;
+
   if (correct) {
     gameTimeline.push({...card, justPlaced: true});
     gameScore++;
     updateScore();
-    showResult(true, '✓ Correct! +1');
-    setControls('next');
-    renderTimeline(false);
+    const bonusMsg = nameBonus ? ' +🎫' : '';
+    if (gameScore >= winTarget) {
+      showResult(true, `✓ Perfect Run!${bonusMsg}`);
+      renderTimeline(false);
+      setTimeout(() => endGame(), 1500);
+    } else {
+      showResult(true, `✓ Correct!${bonusMsg}`);
+      setControls('next');
+      renderTimeline(false);
+    }
   } else {
     lastCard = {...card};
-    showResult(false, '✗ Wrong! Game Over');
-    document.getElementById('game-controls').innerHTML = '';
-    renderTimeline(false);
-    setTimeout(() => endGame(), 1800);
+    if (gameMode === 'hardcore') {
+      showResult(false, '✗ Wrong! Eliminated');
+      document.getElementById('game-controls').innerHTML = '';
+      renderTimeline(false);
+      setTimeout(() => endGame(), 1800);
+    } else {
+      tokens--;
+      tokensSpent++;
+      updateTokenDisplay();
+      if (tokens <= 0) {
+        showResult(false, '✗ Wrong — no tokens left!');
+        document.getElementById('game-controls').innerHTML = '';
+        renderTimeline(false);
+        setTimeout(() => endGame(), 1800);
+      } else {
+        showResult(false, `✗ Wrong — ${tokens} token${tokens !== 1 ? 's' : ''} left`);
+        setControls('next');
+        renderTimeline(false);
+      }
+    }
   }
 }
 
@@ -1326,7 +1438,7 @@ function showResult(ok, msg) {
   el.className = 'result-banner ' + (ok ? 'correct' : 'wrong');
 }
 
-function updateScore() { document.getElementById('g-score').textContent = gameScore; }
+function updateScore() { document.getElementById('g-score').textContent = gameScore; updateTokenDisplay(); }
 function getSorted() { return [...gameTimeline].sort((a,b) => a.year - b.year); }
 
 function endGame() {
@@ -1334,20 +1446,35 @@ function endGame() {
   const scoreEl = document.getElementById('go-score');
   const ctxEl = document.getElementById('go-context');
   const elimEl = document.getElementById('go-eliminated-card');
+  const tokenStatsEl = document.getElementById('go-token-stats');
   const survived = gameScore;
-  const total = gameCards.length - 1; // excluding the auto-placed starter
-  if (survived >= total) {
+  const isPerfect = survived >= winTarget;
+
+  document.getElementById('go-mode').textContent = gameMode === 'standard' ? 'Standard Mode' : 'Hardcore Mode';
+
+  if (isPerfect) {
     stopPlayback();
     titleEl.textContent = 'PERFECT RUN';
     titleEl.style.textShadow = '5px 5px 0 var(--teal)';
     scoreEl.textContent = survived;
-    ctxEl.textContent = `All ${total} songs placed correctly!`;
+    ctxEl.textContent = `All ${winTarget} songs placed correctly!`;
     elimEl.style.display = 'none';
+    tokenStatsEl.style.display = 'none';
+    document.getElementById('go-playlist').style.display = 'none';
   } else {
     titleEl.textContent = 'ELIMINATED';
     titleEl.style.textShadow = '5px 5px 0 var(--red)';
     scoreEl.textContent = survived;
-    ctxEl.textContent = `${survived} song${survived !== 1 ? 's' : ''} placed correctly`;
+    ctxEl.textContent = `${survived} / ${winTarget} songs placed correctly`;
+    const plEl = document.getElementById('go-playlist');
+    plEl.textContent = selectedPlaylistName;
+    plEl.style.display = '';
+    if (gameMode === 'standard') {
+      tokenStatsEl.innerHTML = `🎫 +${tokensEarned} earned &nbsp;·&nbsp; 💀 −${tokensSpent} spent &nbsp;·&nbsp; ● ${Math.max(0, tokens)} remaining`;
+      tokenStatsEl.style.display = '';
+    } else {
+      tokenStatsEl.style.display = 'none';
+    }
     if (lastCard) {
       const artHtml = lastCard.albumArt
         ? `<img src="${lastCard.albumArt}" style="width:100px;height:100px;object-fit:cover;border-radius:4px;box-shadow:4px 4px 0 rgba(0,0,0,0.5);margin-bottom:10px">`
@@ -1390,7 +1517,8 @@ function renderTimeline(interactive = false) {
 
   sorted.forEach((card, i) => {
     const color = yearToColor(card.year);
-    html += `<div class="t-card ${card.justPlaced ? 'just-placed' : ''}" style="border-top:3px solid ${color};background:linear-gradient(180deg,${color}28 0%,transparent 55%);flex-shrink:0;">
+    const artBg = card.albumArt ? `,url(${card.albumArt}) center/cover no-repeat` : '';
+    html += `<div class="t-card ${card.justPlaced ? 'just-placed' : ''}" style="border-top:3px solid ${color};background:linear-gradient(180deg,${color}50 0%,rgba(0,0,0,0.72) 55%)${artBg};flex-shrink:0;">
       <div class="t-vinyl"></div>
       <div class="t-year" style="color:${color}">${card.year}</div>
       <div class="t-title">${escHtml(card.title)}</div>
@@ -1399,7 +1527,8 @@ function renderTimeline(interactive = false) {
     html += mkDrop(i + 1, `After ${card.year}`);
   });
 
-  container.innerHTML = html || `<div style="font-size:11px;color:rgba(255,255,255,0.2);padding:0 4px">—</div>`;
+  const inner = html || `<div style="font-size:11px;color:rgba(255,255,255,0.2);padding:0 4px">—</div>`;
+  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;min-width:max-content;padding:0 8px">${inner}</div>`;
   container.scrollLeft = container.scrollWidth;
 }
 
@@ -1440,6 +1569,67 @@ async function loadRecommendedPlaylists() {
     ids.map(id => spotifyFetch(`/playlists/${id}?fields=id,name,images,tracks(total)`).catch(() => null))
   );
   recommendedPlaylists = results.filter(p => p && p.id);
+}
+
+// ============================================================
+//  MODE & TOKENS
+// ============================================================
+function setMode(m) {
+  gameMode = m;
+  document.getElementById('mode-standard').classList.toggle('active', m === 'standard');
+  document.getElementById('mode-hardcore').classList.toggle('active', m === 'hardcore');
+  document.getElementById('start-btn').textContent = m === 'standard' ? '♟ Play Standard' : '☠ Play Hardcore';
+}
+
+function updateTokenDisplay() {
+  const wrap = document.getElementById('token-wrap');
+  if (!wrap) return;
+  wrap.style.display = gameMode === 'standard' ? '' : 'none';
+  if (gameMode === 'standard') document.getElementById('token-count').textContent = tokens;
+}
+
+// ============================================================
+//  ARTIST / TITLE AUTOCOMPLETE
+// ============================================================
+function onAcInput(type, val) {
+  if (type === 'artist') pendingArtistGuess = val;
+  else pendingTitleGuess = val;
+  clearTimeout(acTimers[type]);
+  const dropId = type === 'artist' ? 'ac-artist-drop' : 'ac-title-drop';
+  if (!val.trim()) { const d = document.getElementById(dropId); if (d) d.style.display = 'none'; return; }
+  acTimers[type] = setTimeout(() => acSearch(type, val.trim()), 320);
+}
+
+async function acSearch(type, query) {
+  const dropId = type === 'artist' ? 'ac-artist-drop' : 'ac-title-drop';
+  const drop = document.getElementById(dropId);
+  if (!drop) return;
+  const data = await spotifyFetch(`/search?type=${type === 'artist' ? 'artist' : 'track'}&q=${encodeURIComponent(query)}&limit=6`);
+  if (!data) return;
+  const items = type === 'artist'
+    ? (data.artists ? data.artists.items : [])
+    : (data.tracks ? data.tracks.items : []);
+  if (!items || !items.length) { drop.style.display = 'none'; return; }
+  drop.innerHTML = items.slice(0, 6).map(item =>
+    `<div class="ac-item" data-type="${type}" data-value="${escHtml(item.name)}" onclick="selectAcFromEl(this)">${escHtml(item.name)}</div>`
+  ).join('');
+  drop.style.display = '';
+}
+
+function selectAcFromEl(el) {
+  const type = el.dataset.type;
+  const value = el.dataset.value;
+  if (type === 'artist') {
+    pendingArtistGuess = value;
+    const inp = document.getElementById('ac-artist');
+    if (inp) inp.value = value;
+    document.getElementById('ac-artist-drop').style.display = 'none';
+  } else {
+    pendingTitleGuess = value;
+    const inp = document.getElementById('ac-title');
+    if (inp) inp.value = value;
+    document.getElementById('ac-title-drop').style.display = 'none';
+  }
 }
 
 // ============================================================
