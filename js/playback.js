@@ -126,10 +126,18 @@ async function playTrack(uri) {
   document.getElementById('vinyl-disc').classList.add('playing');
   const statusEl = document.getElementById('player-status');
   if (statusEl) statusEl.textContent = '♫ Playing…';
-  await spotifyFetch(`/me/player/play?device_id=${deviceId}`, {
+  const playRes = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
     method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
     body: JSON.stringify({ uris: [uri], position_ms: 30000 })
   });
+  if (playRes.status === 404 || playRes.status === 403) {
+    // Track unavailable — skip silently
+    document.getElementById('vinyl-disc').classList.remove('playing');
+    if (statusEl) statusEl.textContent = 'Track unavailable — skipping…';
+    if (typeof skipUnavailableTrack === 'function') skipUnavailableTrack();
+    return;
+  }
   isPlaying = true;
   document.getElementById('play-btn').textContent = '⏸';
 }

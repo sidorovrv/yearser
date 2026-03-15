@@ -17,14 +17,15 @@ function getSorted() { return [...gameTimeline].sort((a, b) => a.year - b.year);
 function updateTokenDisplay() {
   const wrap = document.getElementById('token-wrap');
   if (!wrap) return;
-  wrap.style.display = gameMode === 'standard' ? 'inline-flex' : 'none';
-  if (gameMode === 'standard') document.getElementById('token-count').textContent = tokens;
+  const showHearts = gameMode === 'standard' || gameMode === 'four-options' || gameMode === 'name-guess';
+  wrap.style.display = showHearts ? 'inline-flex' : 'none';
+  if (showHearts) document.getElementById('token-count').textContent = tokens;
 }
 
 // ============================================================
 //  CONTROLS RENDERING
 // ============================================================
-function setControls(mode) {
+function setControls(mode, card) {
   const el = document.getElementById('game-controls');
   const guessBlock = gameMode === 'standard' ? `
     <div style="width:100%;max-width:340px;margin-bottom:10px">
@@ -45,7 +46,46 @@ function setControls(mode) {
       <div style="font-size:11px;color:var(--teal);letter-spacing:0.08em;text-align:center;padding:4px 0">Tap another gap to move — or lock it in</div>
       <div class="controls-row"><button class="btn btn-primary" onclick="confirmPlacement()">✓ &nbsp;Lock In</button></div>`;
   } else if (mode === 'next') {
-    el.innerHTML = `<div class="controls-row"><button class="btn btn-primary" onclick="nextCard()">Next Song →</button></div>`;
+    el.innerHTML = `<div class="controls-row"><button class="btn btn-primary btn-wide" onclick="nextCard()">Next Song →</button></div>`;
+  } else if (mode === 'four-options' && card) {
+    // Build 4 year options: correct + 3 wrong from the pool
+    const correctYear = card.year;
+    const otherYears = gameCards
+      .filter((c, i) => i !== gameIndex && c.year !== correctYear)
+      .map(c => c.year);
+    // Shuffle and pick 3 unique wrong years
+    for (let i = otherYears.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [otherYears[i], otherYears[j]] = [otherYears[j], otherYears[i]];
+    }
+    const wrongYears = [...new Set(otherYears)].slice(0, 3);
+    // Pad with random years if not enough distinct options
+    while (wrongYears.length < 3) {
+      const y = 1960 + Math.floor(Math.random() * 60);
+      if (y !== correctYear && !wrongYears.includes(y)) wrongYears.push(y);
+    }
+    const options = [correctYear, ...wrongYears].sort(() => Math.random() - 0.5);
+    el.innerHTML = `
+      <div style="width:100%;max-width:340px">
+        <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:10px;text-align:center">Which year was this released?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${options.map(y => `<button class="btn btn-secondary" style="font-family:'Bebas Neue',cursive;font-size:22px;padding:14px 0;" onclick="confirmFourOptions(${y})">${y}</button>`).join('')}
+        </div>
+      </div>`;
+  } else if (mode === 'name-guess') {
+    el.innerHTML = `
+      <div style="width:100%;max-width:340px;margin-bottom:8px">
+        <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:8px;text-align:center">Guess artist &amp; title — 3 pts for both, 1 for each</div>
+        <div class="ac-wrap" style="margin-bottom:6px">
+          <input class="ac-input" id="ac-artist" type="text" placeholder="Artist name…" oninput="onAcInput('artist',this.value)" autocomplete="off">
+          <div class="ac-dropdown" id="ac-artist-drop"></div>
+        </div>
+        <div class="ac-wrap" style="margin-bottom:10px">
+          <input class="ac-input" id="ac-title" type="text" placeholder="Song title…" oninput="onAcInput('title',this.value)" autocomplete="off">
+          <div class="ac-dropdown" id="ac-title-drop"></div>
+        </div>
+        <div class="controls-row"><button class="btn btn-primary btn-wide" onclick="confirmNameGuess()">✓ Submit Guess</button></div>
+      </div>`;
   } else {
     el.innerHTML = '';
   }

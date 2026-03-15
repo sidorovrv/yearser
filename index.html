@@ -15,7 +15,7 @@
 <!-- ===== LOADING ===== -->
 <div id="loading" class="screen active">
   <div class="spinner" id="loading-spinner"></div>
-  <div class="loading-text" id="loading-text">Connecting to SpotifyвЂ¦</div>
+  <div class="loading-text" id="loading-text">Connecting to Spotify…</div>
   <div id="loading-error" style="display:none;text-align:center;max-width:340px;padding:0 24px">
     <div class="error-box" id="loading-error-msg"></div>
     <button class="btn btn-spotify" onclick="loginWithSpotify()" style="margin-top:20px">
@@ -38,15 +38,17 @@
     </div>
   </div>
   <div class="screen-content">
-    <input type="text" id="playlist-search" placeholder="рџ”Ќ  Search Spotify playlistsвЂ¦" oninput="onSearchInput(this.value)" style="margin-bottom:16px">
+    <input type="text" id="playlist-search" placeholder="🔍  Search Spotify playlists…" oninput="onSearchInput(this.value)" style="margin-bottom:16px">
     <div class="playlist-grid" id="playlist-grid">
-      <div class="empty-state">Loading playlistsвЂ¦</div>
+      <div class="empty-state">Loading playlists…</div>
     </div>
   </div>
   <div class="picker-footer" style="flex-direction:column;align-items:stretch;gap:10px">
-    <div style="display:flex;gap:8px">
-      <button class="mode-btn active" id="mode-standard" onclick="setMode('standard')">в™џ Standard</button>
-      <button class="mode-btn" id="mode-hardcore" onclick="setMode('hardcore')">в  Hardcore</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="mode-btn active" id="mode-standard" onclick="setMode('standard')">♟ Standard</button>
+      <button class="mode-btn" id="mode-hardcore" onclick="setMode('hardcore')">☠ Hardcore</button>
+      <button class="mode-btn" id="mode-four-options" onclick="setMode('four-options')">🎲 4 Options</button>
+      <button class="mode-btn" id="mode-name-guess" onclick="setMode('name-guess')">🎤 Name Guess</button>
     </div>
     <div style="display:flex;gap:10px;align-items:flex-end">
       <div class="num-input-wrap">
@@ -59,19 +61,19 @@
       </div>
       <button class="btn btn-ghost" onclick="logout()" style="margin-left:auto;padding:10px 14px">Log out</button>
     </div>
-    <button class="btn btn-primary" id="start-btn" onclick="startGame()" style="width:100%">в™џ Play Standard</button>
+    <button class="btn btn-primary" id="start-btn" onclick="startGame()" style="width:100%">♟ Play Standard</button>
   </div>
 </div>
 
 <!-- ===== GAME ===== -->
 <div id="game" class="screen">
   <div class="game-header">
-    <button class="back-btn" onclick="quitGame()">в†ђ</button>
+    <button class="back-btn" onclick="quitGame()">←</button>
     <div class="pl-badge" id="g-pl-name"></div>
     <div class="hdr-pills">
       <span class="hdr-pill hdr-counter" id="g-counter"></span>
-      <span class="hdr-pill hdr-token" id="token-wrap" style="display:none">в™Ґ <span id="token-count">3</span></span>
-      <span class="hdr-pill hdr-score">в… <span id="g-score">0</span></span>
+      <span class="hdr-pill hdr-token" id="token-wrap" style="display:none">♥ <span id="token-count">3</span></span>
+      <span class="hdr-pill hdr-score">★ <span id="g-score">0</span></span>
     </div>
   </div>
 
@@ -100,16 +102,16 @@
 
       <div class="song-info-block">
         <img id="revealed-art" src="" alt="" style="display:none;width:88px;height:88px;object-fit:cover;border-radius:4px;margin-bottom:10px;box-shadow:4px 4px 0 rgba(0,0,0,0.5)">
-        <div class="song-title-big" id="g-title">вЂ”</div>
+        <div class="song-title-big" id="g-title">—</div>
         <div class="song-artist-sm" id="g-artist"></div>
         <div class="song-year-big hidden" id="g-year"></div>
       </div>
 
       <!-- Spotify player -->
       <div class="spotify-player" id="spotify-player">
-        <div class="player-status" id="player-status">Searching for SpotifyвЂ¦</div>
-        <button class="player-btn" id="refresh-devices-btn" onclick="retryDevices()" title="Refresh Devices" style="background:rgba(255,255,255,0.08);color:var(--cream);width:34px;height:34px;font-size:16px;margin-right:-4px">в†є</button>
-        <button class="player-btn" id="play-btn" onclick="togglePlayback()" title="Play/Pause">в–¶</button>
+        <div class="player-status" id="player-status">Searching for Spotify…</div>
+        <button class="player-btn" id="refresh-devices-btn" onclick="retryDevices()" title="Refresh Devices" style="background:rgba(255,255,255,0.08);color:var(--cream);width:34px;height:34px;font-size:16px;margin-right:-4px">↺</button>
+        <button class="player-btn" id="play-btn" onclick="togglePlayback()" title="Play/Pause">▶</button>
       </div>
       <div id="no-device-banner" style="display:none;background:#2d1a00;border:1px solid rgba(255,140,0,0.35);padding:9px 14px;margin-top:6px;width:100%;max-width:340px;font-size:11px;color:#ffb347;letter-spacing:0.06em;display:none;align-items:center;gap:10px;flex-shrink:0;">
         <span style="flex:1">Open Spotify on your phone to enable playback</span>
@@ -132,8 +134,8 @@
   <div id="go-playlist" style="display:none;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal);margin-top:-6px"></div>
   <div id="go-token-stats" style="display:none;font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;margin-top:4px"></div>
   <div id="go-eliminated-card" style="display:none;text-align:center;margin-top:12px;max-width:320px"></div>
-  <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:24px">
-    <button class="btn btn-primary" onclick="startGame()">в–¶ Play Again</button>
+  <div class="go-actions">
+    <button class="btn btn-primary" onclick="startGame()">▶ Play Again</button>
     <button class="btn btn-secondary" onclick="stopPlayback();goTo('picker')">Change Playlist</button>
   </div>
 </div>

@@ -114,6 +114,12 @@ input[type="number"]:focus { border-color: var(--teal); }
 
 .btn-primary:hover:not(:disabled) { box-shadow: 6px 6px 0 var(--gold); transform: translate(-2px,-2px); }
 
+.btn-wide { min-width: 220px; }
+
+@media (max-width: 480px) {
+  .btn-wide { width: 100%; }
+}
+
 .btn-secondary {
   background: transparent;
   color: var(--cream);

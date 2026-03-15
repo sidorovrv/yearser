@@ -196,6 +196,21 @@
 .go-score { font-family: 'Bebas Neue', cursive; font-size: clamp(40px, 9vh, 70px); color: var(--gold); line-height: 1; }
 .go-context { font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 0.12em; }
 
+.go-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.go-actions .btn { min-width: 180px; }
+
+@media (max-width: 480px) {
+  .go-actions { flex-direction: column; align-items: stretch; width: 100%; max-width: 320px; }
+  .go-actions .btn { width: 100%; }
+}
+
 @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
 
 /* ===== LOADING ===== */

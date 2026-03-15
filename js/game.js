@@ -1,11 +1,28 @@
 // ============================================================
+//  SKIP UNAVAILABLE TRACK (called from playback.js)
+// ============================================================
+function skipUnavailableTrack() {
+  gameCards.splice(gameIndex, 1);
+  if (gameIndex >= gameCards.length) { endGame(); return; }
+  loadCard();
+}
+
+// ============================================================
 //  MODE & TOKENS
 // ============================================================
 function setMode(m) {
   gameMode = m;
   document.getElementById('mode-standard').classList.toggle('active', m === 'standard');
   document.getElementById('mode-hardcore').classList.toggle('active', m === 'hardcore');
-  document.getElementById('start-btn').textContent = m === 'standard' ? '♟ Play Standard' : '☠ Play Hardcore';
+  document.getElementById('mode-four-options').classList.toggle('active', m === 'four-options');
+  document.getElementById('mode-name-guess').classList.toggle('active', m === 'name-guess');
+  const labels = {
+    'standard': '♟ Play Standard',
+    'hardcore': '☠ Play Hardcore',
+    'four-options': '🎲 Play 4 Options',
+    'name-guess': '🎤 Play Name Guess'
+  };
+  document.getElementById('start-btn').textContent = labels[m] || '▶ Play';
 }
 
 // ============================================================
@@ -80,11 +97,20 @@ async function startGame() {
     const mbYear = await mbLookup(gameCards[0].isrc);
     if (mbYear !== null) gameCards[0].year = mbYear;
   }
-  // Auto-place the first card as a visible reference point
-  gameTimeline.push({...gameCards[0]});
-  gameIndex = 1;
+  // Auto-place the first card as a visible reference point (not needed for name-guess)
+  if (gameMode !== 'name-guess') {
+    gameTimeline.push({...gameCards[0]});
+    gameIndex = 1;
+  } else {
+    gameIndex = 0;
+  }
 
   document.getElementById('g-pl-name').textContent = selectedPlaylistName;
+  // Hide timeline section for name-guess mode — no ordering needed
+  const tlSection = document.querySelector('.timeline-section');
+  const divider = document.querySelector('.divider');
+  if (tlSection) tlSection.style.display = gameMode === 'name-guess' ? 'none' : '';
+  if (divider) divider.style.display = gameMode === 'name-guess' ? 'none' : '';
   updateScore();
   updateTokenDisplay();
   goTo('game');
@@ -145,11 +171,18 @@ async function loadCard() {
   currentTrackUri = card.uri;
   playTrack(card.uri);
 
-  setControls('place-hint');
+  if (gameMode === 'four-options') {
+    setControls('four-options', card);
+  } else if (gameMode === 'name-guess') {
+    setControls('name-guess');
+  } else {
+    setControls('place-hint');
+  }
   renderTimeline(true);
 }
 
 function tentativePlaceCard(insertIndex) {
+  if (gameMode === 'four-options' || gameMode === 'name-guess') return;
   if (gameMode === 'standard') {
     const ae = document.getElementById('ac-artist');
     const te = document.getElementById('ac-title');
@@ -258,6 +291,118 @@ async function nextCard() {
   await loadCard();
 }
 
+// ============================================================
+//  FOUR-OPTIONS MODE
+// ============================================================
+function confirmFourOptions(chosenYear) {
+  const card = gameCards[gameIndex];
+  const correct = chosenYear === card.year;
+
+  // Reveal info
+  const titleEl = document.getElementById('g-title');
+  titleEl.textContent = card.title; titleEl.style.opacity = '';
+  const artistEl = document.getElementById('g-artist');
+  artistEl.textContent = card.artist; artistEl.style.opacity = '';
+  document.getElementById('g-year').textContent = card.year;
+  document.getElementById('g-year').classList.remove('hidden');
+  document.getElementById('album-art').classList.add('visible');
+  const revArt = document.getElementById('revealed-art');
+  if (card.albumArt) { revArt.src = card.albumArt; revArt.style.display = ''; }
+  document.getElementById('vinyl-wrap').style.display = 'none';
+
+  if (correct) {
+    gameTimeline.push({...card, justPlaced: true});
+    gameScore++;
+    updateScore();
+    if (gameScore >= winTarget) {
+      showResult(true, '✓ Perfect Run!');
+      renderTimeline(false);
+      setTimeout(() => endGame(), 1500);
+    } else {
+      showResult(true, '✓ Correct!');
+      setControls('next');
+      renderTimeline(false);
+    }
+  } else {
+    lastCard = {...card, guessedYear: chosenYear};
+    tokens--;
+    updateTokenDisplay();
+    if (tokens <= 0) {
+      showResult(false, `✗ Wrong! It was ${card.year}. No lives left.`);
+      document.getElementById('game-controls').innerHTML = '';
+      renderTimeline(false);
+      setTimeout(() => endGame(), 1800);
+    } else {
+      showResult(false, `✗ Wrong! It was ${card.year}. ${tokens} life${tokens !== 1 ? 's' : ''} left.`);
+      setControls('next');
+      renderTimeline(false);
+    }
+  }
+}
+
+// ============================================================
+//  NAME-GUESS MODE
+// ============================================================
+function confirmNameGuess() {
+  const card = gameCards[gameIndex];
+  const artistInput = (document.getElementById('ac-artist')?.value || '').trim().toLowerCase();
+  const titleInput  = (document.getElementById('ac-title')?.value  || '').trim().toLowerCase();
+
+  const cardArtists = card.artist.toLowerCase().split(/,\s*/);
+  const artistOk = artistInput && cardArtists.some(a => a === artistInput);
+  const titleOk  = titleInput  && titleInput === card.title.toLowerCase();
+
+  let pts = 0;
+  if (artistOk) pts++;
+  if (titleOk)  pts++;
+  if (artistOk && titleOk) pts++; // bonus point for both
+
+  // Reveal info
+  const titleEl = document.getElementById('g-title');
+  titleEl.textContent = card.title; titleEl.style.opacity = '';
+  const artistEl = document.getElementById('g-artist');
+  artistEl.textContent = card.artist; artistEl.style.opacity = '';
+  document.getElementById('g-year').textContent = card.year;
+  document.getElementById('g-year').classList.remove('hidden');
+  document.getElementById('album-art').classList.add('visible');
+  const revArt = document.getElementById('revealed-art');
+  if (card.albumArt) { revArt.src = card.albumArt; revArt.style.display = ''; }
+  document.getElementById('vinyl-wrap').style.display = 'none';
+
+  gameScore += pts;
+  updateScore();
+
+  const gotAny = pts > 0;
+  if (!gotAny) {
+    tokens--;
+    updateTokenDisplay();
+  }
+
+  let msg = '';
+  if (pts === 3) msg = '✓ Perfect! +3 pts';
+  else if (pts === 2) msg = `✓ ${artistOk ? 'Artist' : 'Title'} correct! +1 pt`;
+  else if (pts === 1) msg = `✓ ${artistOk ? 'Artist' : 'Title'} correct! +1 pt`;
+  else msg = `✗ Wrong! ${tokens > 0 ? tokens + ' life' + (tokens !== 1 ? 's' : '') + ' left.' : 'No lives left.'}`;
+
+  const correct = pts > 0;
+  showResult(correct, msg);
+
+  if (!gotAny && tokens <= 0) {
+    document.getElementById('game-controls').innerHTML = '';
+    renderTimeline(false);
+    setTimeout(() => endGame(), 1800);
+  } else {
+    if (pts > 0) gameTimeline.push({...card, justPlaced: true});
+    if (gameScore >= winTarget) {
+      renderTimeline(false);
+      setTimeout(() => endGame(), 1500);
+    } else {
+      setControls('next');
+      renderTimeline(false);
+    }
+  }
+}
+
 function endGame() {
   const titleEl = document.getElementById('go-title');
   const scoreEl = document.getElementById('go-score');
@@ -267,7 +412,11 @@ function endGame() {
   const survived = gameScore;
   const isPerfect = survived >= winTarget;
 
-  document.getElementById('go-mode').textContent = gameMode === 'standard' ? 'Standard Mode' : 'Hardcore Mode';
+  document.getElementById('go-mode').textContent =
+    gameMode === 'standard'    ? 'Standard Mode' :
+    gameMode === 'hardcore'    ? 'Hardcore Mode' :
+    gameMode === 'four-options'? '4 Options Mode' :
+    gameMode === 'name-guess'  ? 'Name Guess Mode' : '';
 
   if (isPerfect) {
     stopPlayback();
@@ -288,6 +437,9 @@ function endGame() {
     plEl.style.display = '';
     if (gameMode === 'standard') {
       tokenStatsEl.innerHTML = `♥ &nbsp;+${tokensEarned} earned &nbsp;·&nbsp; ${tokensSpent} spent &nbsp;·&nbsp; ${Math.max(0, tokens)} remaining`;
+      tokenStatsEl.style.display = '';
+    } else if (gameMode === 'name-guess' || gameMode === 'four-options') {
+      tokenStatsEl.innerHTML = `♥ &nbsp;${Math.max(0, tokens)} / 3 lives remaining`;
       tokenStatsEl.style.display = '';
     } else {
       tokenStatsEl.style.display = 'none';
