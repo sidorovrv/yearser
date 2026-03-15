@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Timeline FM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,500;1,300&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
@@ -20,6 +20,12 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  html {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     background: var(--black);
     color: var(--cream);
@@ -27,6 +33,7 @@
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
+    overscroll-behavior: none;
   }
 
   body::before {
@@ -1261,6 +1268,7 @@ async function stopPlayback() {
   isPlaying = false;
   document.getElementById('play-btn').textContent = '▶';
   document.getElementById('vinyl-disc').classList.remove('playing');
+  if (isIOS) return; // never interrupt playback on iOS
   if (spotifyPlayer) {
     spotifyPlayer.pause().catch(() => {});
   } else if (deviceId) {
@@ -1777,7 +1785,8 @@ function onAcInput(type, val) {
   clearTimeout(acTimers[type]);
   const dropId = type === 'artist' ? 'ac-artist-drop' : 'ac-title-drop';
   if (!val.trim()) { const d = document.getElementById(dropId); if (d) d.style.display = 'none'; return; }
-  acTimers[type] = setTimeout(() => acSearch(type, val.trim()), 320);
+  if (val.trim().length < 3) return;
+  acTimers[type] = setTimeout(() => acSearch(type, val.trim()), 160);
 }
 
 async function acSearch(type, query) {
