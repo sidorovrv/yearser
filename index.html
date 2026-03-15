@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HITSTER — Spotify Edition</title>
+<title>Timeline FM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,500;1,300&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
 <style>
@@ -15,8 +15,7 @@
     --teal: #1DB954; /* Spotify green */
     --vinyl: #1a1a2e;
     --groove: #111122;
-    --vinyl-size: clamp(90px, 22vh, 150px);
-    --label-size: clamp(36px, 9vh, 60px);
+    --vinyl-size: clamp(70px, 18vh, 130px);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,6 +25,7 @@
     color: var(--cream);
     font-family: 'DM Mono', monospace;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
 
@@ -36,7 +36,7 @@
     pointer-events: none; z-index: 9999; opacity: 0.4;
   }
 
-  .screen { display: none; height: 100vh; }
+  .screen { display: none; height: 100vh; height: 100dvh; }
   .screen.active { display: flex; flex-direction: column; }
 
   /* ===== SETUP / CONFIG SCREEN ===== */
@@ -194,11 +194,12 @@
   }
 
   .screen-header {
-    padding: 24px 28px;
+    padding: 12px 18px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 14px;
+    flex-shrink: 0;
   }
 
   .back-btn {
@@ -212,8 +213,9 @@
 
   .screen-title {
     font-family: 'Bebas Neue', cursive;
-    font-size: 38px;
+    font-size: clamp(26px, 7vw, 36px);
     letter-spacing: 0.05em;
+    line-height: 1;
   }
 
   .user-badge {
@@ -232,7 +234,11 @@
 
   .user-name { font-size: 11px; color: rgba(255,255,255,0.5); }
 
-  .screen-content { flex: 1; padding: 28px; overflow-y: auto; min-height: 0; }
+  .screen-content { flex: 1; padding: 16px 20px; overflow-y: auto; min-height: 0; }
+  .screen-content::-webkit-scrollbar { width: 4px; }
+  .screen-content::-webkit-scrollbar-track { background: transparent; }
+  .screen-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 2px; }
+  .screen-content::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
 
   /* Playlist grid */
   .playlist-grid {
@@ -282,12 +288,13 @@
   .pl-count { font-size: 10px; color: rgba(255,255,255,0.35); }
 
   .picker-footer {
-    padding: 20px 28px;
+    padding: 12px 18px;
     border-top: 1px solid rgba(255,255,255,0.08);
     display: flex;
-    gap: 16px;
+    gap: 12px;
     align-items: center;
     flex-wrap: wrap;
+    flex-shrink: 0;
   }
 
   .num-input-wrap { display: flex; flex-direction: column; gap: 6px; }
@@ -309,12 +316,13 @@
   #game { background: var(--black); }
 
   .game-header {
-    padding: 16px 24px;
+    padding: 10px 16px;
     border-bottom: 1px solid rgba(255,255,255,0.07);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
+    flex-shrink: 0;
   }
 
   .game-meta { display: flex; align-items: center; gap: 16px; }
@@ -430,7 +438,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 0 24px 16px;
+    padding: 0 16px 8px;
+    min-height: 0;
     overflow: hidden;
   }
 
@@ -439,12 +448,16 @@
   /* Vinyl disc */
   .vinyl-wrap {
     position: relative;
-    margin-bottom: 10px;
-    flex-shrink: 0;
+    margin-bottom: 8px;
+    flex: 0 1 var(--vinyl-size);
+    width: var(--vinyl-size);
+    height: var(--vinyl-size);
+    min-width: 70px;
+    min-height: 70px;
   }
 
   .vinyl-disc {
-    width: var(--vinyl-size); height: var(--vinyl-size);
+    width: 100%; height: 100%;
     border-radius: 50%;
     background: repeating-radial-gradient(
       circle at 50%,
@@ -472,14 +485,16 @@
   @keyframes discSpin { to { transform: rotate(360deg); } }
 
   .vinyl-label {
-    width: var(--label-size); height: var(--label-size);
+    width: 40%; height: 40%;
     border-radius: 50%;
     background: var(--cream);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     text-align: center;
-    padding: 8px;
+    padding: 4px;
     position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
   }
 
   .vinyl-disc.hidden-label .vinyl-label {
@@ -511,7 +526,7 @@
   /* Album art overlay */
   .album-art {
     position: absolute;
-    width: var(--vinyl-size); height: var(--vinyl-size);
+    width: 100%; height: 100%;
     border-radius: 50%;
     object-fit: cover;
     opacity: 0;
@@ -524,7 +539,8 @@
   /* Song info */
   .song-info-block {
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
   }
 
   .song-title-big {
@@ -538,10 +554,10 @@
 
   .song-year-big {
     font-family: 'Bebas Neue', cursive;
-    font-size: 44px;
+    font-size: clamp(32px, 7vh, 44px);
     color: var(--gold);
     line-height: 1;
-    margin-top: 6px;
+    margin-top: 4px;
     transition: opacity 0.3s;
   }
 
@@ -558,6 +574,7 @@
     margin-bottom: 8px;
     width: 100%;
     max-width: 340px;
+    flex-shrink: 0;
   }
 
   .player-status { font-size: 10px; color: var(--teal); letter-spacing: 0.1em; flex: 1; }
@@ -616,14 +633,17 @@
   /* ===== GAME OVER ===== */
   #gameover {
     align-items: center; justify-content: center;
-    padding: 40px 24px; gap: 16px; text-align: center;
+    padding: clamp(14px, 5vh, 36px) 20px; gap: clamp(6px, 1.5vh, 14px); text-align: center;
     overflow-y: auto;
     background: radial-gradient(ellipse at 50% 40%, #0d2818, var(--black) 65%);
   }
+  #gameover::-webkit-scrollbar { width: 4px; }
+  #gameover::-webkit-scrollbar-track { background: transparent; }
+  #gameover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 2px; }
 
-  .go-title { font-family: 'Bebas Neue', cursive; font-size: clamp(56px,14vw,110px); letter-spacing:0.05em; text-shadow: 5px 5px 0 var(--teal); animation: fadeDown 0.5s ease; }
-  .go-score { font-family: 'Bebas Neue', cursive; font-size: 72px; color: var(--gold); line-height: 1; }
-  .go-context { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 0.15em; }
+  .go-title { font-family: 'Bebas Neue', cursive; font-size: clamp(40px,min(13vw,11vh),100px); letter-spacing:0.05em; text-shadow: 5px 5px 0 var(--teal); animation: fadeDown 0.5s ease; }
+  .go-score { font-family: 'Bebas Neue', cursive; font-size: clamp(40px, 9vh, 70px); color: var(--gold); line-height: 1; }
+  .go-context { font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 0.12em; }
 
   @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
 
@@ -680,7 +700,10 @@
 <!-- ===== PLAYLIST PICKER ===== -->
 <div id="picker" class="screen">
   <div class="screen-header">
-    <div class="screen-title">Pick a Playlist</div>
+    <div>
+      <div style="font-size:9px;letter-spacing:0.3em;color:var(--teal);text-transform:uppercase;margin-bottom:2px">Timeline FM</div>
+      <div class="screen-title">Pick a Playlist</div>
+    </div>
     <div class="user-badge">
       <img class="user-avatar" id="user-avatar" src="" alt="" onerror="this.style.display='none'">
       <span class="user-name" id="user-name"></span>
@@ -880,7 +903,7 @@ async function exchangeCodeForToken(code) {
 }
 
 async function refreshAccessToken() {
-  const refreshToken = localStorage.getItem('hitster_refresh_token');
+  const refreshToken = localStorage.getItem('timelinefm_refresh_token');
   if (!refreshToken) return false;
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
@@ -895,9 +918,9 @@ async function refreshAccessToken() {
   const data = await res.json();
   accessToken = data.access_token;
   tokenExpiry = Date.now() + data.expires_in * 1000;
-  localStorage.setItem('hitster_token', accessToken);
-  localStorage.setItem('hitster_token_expiry', tokenExpiry);
-  if (data.refresh_token) localStorage.setItem('hitster_refresh_token', data.refresh_token);
+  localStorage.setItem('timelinefm_token', accessToken);
+  localStorage.setItem('timelinefm_token_expiry', tokenExpiry);
+  if (data.refresh_token) localStorage.setItem('timelinefm_refresh_token', data.refresh_token);
   return true;
 }
 
@@ -923,15 +946,15 @@ window.onload = async () => {
     }
     accessToken = tokenData.access_token;
     tokenExpiry = Date.now() + tokenData.expires_in * 1000;
-    localStorage.setItem('hitster_token', accessToken);
-    localStorage.setItem('hitster_token_expiry', tokenExpiry);
-    if (tokenData.refresh_token) localStorage.setItem('hitster_refresh_token', tokenData.refresh_token);
+    localStorage.setItem('timelinefm_token', accessToken);
+    localStorage.setItem('timelinefm_token_expiry', tokenExpiry);
+    if (tokenData.refresh_token) localStorage.setItem('timelinefm_refresh_token', tokenData.refresh_token);
     await initApp();
     return;
   }
 
-  const storedToken = localStorage.getItem('hitster_token');
-  const storedExpiry = parseInt(localStorage.getItem('hitster_token_expiry') || '0');
+  const storedToken = localStorage.getItem('timelinefm_token');
+  const storedExpiry = parseInt(localStorage.getItem('timelinefm_token_expiry') || '0');
   if (storedToken && Date.now() < storedExpiry - 30000) {
     accessToken = storedToken;
     tokenExpiry = storedExpiry;
@@ -979,9 +1002,9 @@ async function loginWithSpotify() {
 }
 
 function logout() {
-  localStorage.removeItem('hitster_token');
-  localStorage.removeItem('hitster_token_expiry');
-  localStorage.removeItem('hitster_refresh_token');
+  localStorage.removeItem('timelinefm_token');
+  localStorage.removeItem('timelinefm_token_expiry');
+  localStorage.removeItem('timelinefm_refresh_token');
   accessToken = null;
   loginWithSpotify();
 }
@@ -1099,7 +1122,7 @@ function initWebPlayback() {
 
 function setupPlayer() {
   spotifyPlayer = new Spotify.Player({
-    name: 'HITSTER Game',
+    name: 'Timeline FM',
     getOAuthToken: cb => cb(accessToken),
     volume: 0.7
   });
