@@ -867,6 +867,13 @@ window.onload = async () => {
     return;
   }
 
+  // If the Client ID is baked in at deploy time, skip the setup screen entirely
+  // and send the user straight to Spotify's login page.
+  if (isClientIdHardcoded()) {
+    loginWithSpotify();
+    return;
+  }
+
   showSetup();
 };
 
