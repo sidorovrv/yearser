@@ -15,6 +15,8 @@
     --teal: #1DB954; /* Spotify green */
     --vinyl: #1a1a2e;
     --groove: #111122;
+    --vinyl-size: clamp(90px, 22vh, 150px);
+    --label-size: clamp(36px, 9vh, 60px);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,8 +25,8 @@
     background: var(--black);
     color: var(--cream);
     font-family: 'DM Mono', monospace;
-    min-height: 100vh;
-    overflow-x: hidden;
+    height: 100vh;
+    overflow: hidden;
   }
 
   body::before {
@@ -34,13 +36,14 @@
     pointer-events: none; z-index: 9999; opacity: 0.4;
   }
 
-  .screen { display: none; min-height: 100vh; }
+  .screen { display: none; height: 100vh; }
   .screen.active { display: flex; flex-direction: column; }
 
   /* ===== SETUP / CONFIG SCREEN ===== */
   #setup {
     align-items: center; justify-content: center;
     padding: 40px 24px;
+    overflow-y: auto;
     background: radial-gradient(ellipse at 50% 0%, #0d2818 0%, var(--black) 65%);
   }
 
@@ -229,7 +232,7 @@
 
   .user-name { font-size: 11px; color: rgba(255,255,255,0.5); }
 
-  .screen-content { flex: 1; padding: 28px; overflow-y: auto; }
+  .screen-content { flex: 1; padding: 28px; overflow-y: auto; min-height: 0; }
 
   /* Playlist grid */
   .playlist-grid {
@@ -338,11 +341,12 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
   }
 
   /* Timeline */
   .timeline-section {
-    padding: 20px 24px 0;
+    padding: 10px 24px 0;
     flex-shrink: 0;
   }
 
@@ -361,7 +365,7 @@
     padding-bottom: 12px;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.1) transparent;
-    min-height: 100px;
+    min-height: 72px;
   }
 
   .drop-zone {
@@ -430,17 +434,17 @@
     overflow: hidden;
   }
 
-  .current-label { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 16px; }
+  .current-label { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 8px; }
 
   /* Vinyl disc */
   .vinyl-wrap {
     position: relative;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
     flex-shrink: 0;
   }
 
   .vinyl-disc {
-    width: 160px; height: 160px;
+    width: var(--vinyl-size); height: var(--vinyl-size);
     border-radius: 50%;
     background: repeating-radial-gradient(
       circle at 50%,
@@ -468,7 +472,7 @@
   @keyframes discSpin { to { transform: rotate(360deg); } }
 
   .vinyl-label {
-    width: 64px; height: 64px;
+    width: var(--label-size); height: var(--label-size);
     border-radius: 50%;
     background: var(--cream);
     display: flex; flex-direction: column;
@@ -507,7 +511,7 @@
   /* Album art overlay */
   .album-art {
     position: absolute;
-    width: 160px; height: 160px;
+    width: var(--vinyl-size); height: var(--vinyl-size);
     border-radius: 50%;
     object-fit: cover;
     opacity: 0;
@@ -520,7 +524,7 @@
   /* Song info */
   .song-info-block {
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
   }
 
   .song-title-big {
@@ -550,8 +554,8 @@
     gap: 12px;
     background: rgba(29,185,84,0.08);
     border: 1px solid rgba(29,185,84,0.2);
-    padding: 10px 16px;
-    margin-bottom: 12px;
+    padding: 7px 14px;
+    margin-bottom: 8px;
     width: 100%;
     max-width: 340px;
   }
@@ -576,11 +580,11 @@
 
   /* Controls */
   .game-controls {
-    padding: 0 24px 24px;
+    padding: 0 24px 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-shrink: 0;
   }
 
@@ -613,6 +617,7 @@
   #gameover {
     align-items: center; justify-content: center;
     padding: 40px 24px; gap: 16px; text-align: center;
+    overflow-y: auto;
     background: radial-gradient(ellipse at 50% 40%, #0d2818, var(--black) 65%);
   }
 
@@ -1372,6 +1377,7 @@ function confirmPlacement() {
   pendingPlacementIndex = null;
 
   // Check name bonus (standard only: both artist AND title must be correct)
+  const guessAttempted = gameMode === 'standard' && !!(pendingArtistGuess || pendingTitleGuess);
   let nameBonus = false;
   if (gameMode === 'standard' && pendingArtistGuess && pendingTitleGuess) {
     const cardArtists = card.artist.toLowerCase().split(/,\s*/);
@@ -1383,6 +1389,7 @@ function confirmPlacement() {
       tokensEarned++;
     }
   }
+  const guessFeedback = !guessAttempted ? '' : nameBonus ? ' · +🎫 Guess correct!' : ' · Guess wrong';
   pendingArtistGuess = null;
   pendingTitleGuess = null;
 
@@ -1390,20 +1397,19 @@ function confirmPlacement() {
     gameTimeline.push({...card, justPlaced: true});
     gameScore++;
     updateScore();
-    const bonusMsg = nameBonus ? ' +🎫' : '';
     if (gameScore >= winTarget) {
-      showResult(true, `✓ Perfect Run!${bonusMsg}`);
+      showResult(true, `✓ Perfect Run!${guessFeedback}`);
       renderTimeline(false);
       setTimeout(() => endGame(), 1500);
     } else {
-      showResult(true, `✓ Correct!${bonusMsg}`);
+      showResult(true, `✓ Correct!${guessFeedback}`);
       setControls('next');
       renderTimeline(false);
     }
   } else {
     lastCard = {...card};
     if (gameMode === 'hardcore') {
-      showResult(false, '✗ Wrong! Eliminated');
+      showResult(false, `✗ Wrong! Eliminated${guessFeedback}`);
       document.getElementById('game-controls').innerHTML = '';
       renderTimeline(false);
       setTimeout(() => endGame(), 1800);
@@ -1412,12 +1418,12 @@ function confirmPlacement() {
       tokensSpent++;
       updateTokenDisplay();
       if (tokens <= 0) {
-        showResult(false, '✗ Wrong — no tokens left!');
+        showResult(false, `✗ Wrong — no tokens left!${guessFeedback}`);
         document.getElementById('game-controls').innerHTML = '';
         renderTimeline(false);
         setTimeout(() => endGame(), 1800);
       } else {
-        showResult(false, `✗ Wrong — ${tokens} token${tokens !== 1 ? 's' : ''} left`);
+        showResult(false, `✗ Wrong — ${tokens} token${tokens !== 1 ? 's' : ''} left${guessFeedback}`);
         setControls('next');
         renderTimeline(false);
       }
@@ -1613,7 +1619,7 @@ async function acSearch(type, query) {
   drop.innerHTML = items.slice(0, 6).map(item =>
     `<div class="ac-item" data-type="${type}" data-value="${escHtml(item.name)}" onclick="selectAcFromEl(this)">${escHtml(item.name)}</div>`
   ).join('');
-  drop.style.display = '';
+  drop.style.display = 'block';
 }
 
 function selectAcFromEl(el) {
@@ -1631,6 +1637,12 @@ function selectAcFromEl(el) {
     document.getElementById('ac-title-drop').style.display = 'none';
   }
 }
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.ac-wrap')) {
+    document.querySelectorAll('.ac-dropdown').forEach(d => d.style.display = 'none');
+  }
+});
 
 // ============================================================
 //  NAVIGATION
