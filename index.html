@@ -654,7 +654,7 @@
       <div class="tagline">Spotify Edition</div>
     </div>
 
-    <div class="setup-card">
+    <div class="setup-card" id="dev-setup-card">
       <div class="setup-card-title">One-time Setup</div>
       <div class="step-row">
         <div class="step-num">1</div>
@@ -783,9 +783,16 @@
 
 <script>
 // ============================================================
-//  CONFIG — edit CLIENT_ID here OR enter it in the UI
+//  CONFIG
+//  HARDCODED_CLIENT_ID is replaced at deploy time by GitHub Actions.
+//  The placeholder string is safe to commit — it contains no real secret.
 // ============================================================
+const HARDCODED_CLIENT_ID = '__SPOTIFY_CLIENT_ID__';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
+
+function isClientIdHardcoded() {
+  return HARDCODED_CLIENT_ID !== '__SPOTIFY_CLIENT_ID__' && HARDCODED_CLIENT_ID.length > 0;
+}
 const SCOPES = [
   'user-read-private',
   'user-read-email',
@@ -865,6 +872,8 @@ window.onload = async () => {
 
 function showSetup(err) {
   goTo('setup');
+  // Hide developer setup instructions when the Client ID is already baked in
+  document.getElementById('dev-setup-card').style.display = isClientIdHardcoded() ? 'none' : '';
   if (err) {
     const el = document.getElementById('setup-error');
     el.textContent = err;
@@ -878,6 +887,7 @@ function saveClientId() {
 }
 
 function getClientId() {
+  if (isClientIdHardcoded()) return HARDCODED_CLIENT_ID;
   return document.getElementById('client-id-input').value.trim() ||
          localStorage.getItem('hitster_client_id') || '';
 }
