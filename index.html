@@ -910,7 +910,7 @@ function getClientId() {
 
 async function loginWithSpotify() {
   const clientId = getClientId();
-  if (!clientId || clientId === '__SPOTIFY_CLIENT_ID__') {
+  if (!clientId || clientId === ('__SPOTIFY' + '_CLIENT_ID__')) {
     showError('No Spotify Client ID configured. Please deploy via GitHub Actions with the SPOTIFY_CLIENT_ID secret set.');
     return;
   }
