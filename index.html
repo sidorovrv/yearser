@@ -123,7 +123,7 @@
     color: var(--cream);
     padding: 14px 16px;
     font-family: 'DM Mono', monospace;
-    font-size: 13px;
+    font-size: 16px;
     outline: none;
     transition: border-color 0.15s;
   }
@@ -310,7 +310,7 @@
     color: var(--cream);
     padding: 10px 14px;
     font-family: 'DM Mono', monospace;
-    font-size: 13px;
+    font-size: 16px;
     outline: none;
     width: 90px;
   }
@@ -428,9 +428,9 @@
 
   .t-vinyl::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--cream); opacity: 0.5; }
 
-  .t-year { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--gold); line-height: 1; }
-  .t-title { font-size: 8px; color: rgba(255,255,255,0.5); margin-top: 3px; line-height: 1.3; }
-  .t-artist { font-size: 7px; color: rgba(255,255,255,0.25); margin-top: 1px; }
+  .t-year { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--gold); line-height: 1; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  .t-title { font-size: 8px; color: rgba(255,255,255,0.92); margin-top: 3px; line-height: 1.3; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+  .t-artist { font-size: 7px; color: rgba(255,255,255,0.65); margin-top: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.9); }
 
   .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 5px 12px; flex-shrink: 0; }
 
@@ -1687,7 +1687,7 @@ function renderTimeline(interactive = false) {
   sorted.forEach((card, i) => {
     const color = yearToColor(card.year);
     const bgStyle = card.albumArt
-      ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.6)),url(${card.albumArt}) center/cover no-repeat`
+      ? `background:linear-gradient(rgba(0,0,0,0.65),rgba(0,0,0,0.82)),url(${card.albumArt}) center/cover no-repeat`
       : `background:linear-gradient(180deg,${color}33 0%,rgba(0,0,0,0.8) 100%)`;
     html += `<div class="t-card ${card.justPlaced ? 'just-placed' : ''}" style="border-top:3px solid ${color};${bgStyle};flex-shrink:0;">
       <div class="t-year" style="color:${color}">${card.year}</div>
@@ -1738,41 +1738,17 @@ async function searchPlaylists(query) {
 }
 
 async function loadRecommendedPlaylists() {
+  // Public playlist IDs to pin in the Recommended section.
+  // Any publicly shared Spotify playlist URL works — paste the ID here.
   const ids = [
-    // ── Add your own playlist IDs here ───────────────────────────────
-    '4oYTRg0JI48jucsJOLily1', // Rock Play 
-    '2WQxrq5bmHMlVuzvtwwywV', // Default Play
-    // ── Rock ──────────────────────────────────────────────────────────
-    '37i9dQZF1DWXRqgorJj26U', // Rock Classics
-    '37i9dQZF1DX1rVvRgjX59F', // Classic Rock Drive
-    '37i9dQZF1DX9sQDbOMReFI', // Rock Hard
-
-    // ── Pop ───────────────────────────────────────────────────────────
-    '37i9dQZF1DXarRysLJmuju', // Soft Pop Hits
-    '37i9dQZF1DX1ngEVM0lKrb', // Pop classics
-
-    // ── Hip-Hop ───────────────────────────────────────────────────────
-    '37i9dQZF1DX0XUsuxWHRQd', // RapCaviar Classics
-    '37i9dQZF1DX2RxBh64BHjQ', // Most Necessary (90s/00s Hip-Hop)
-    '37i9dQZF1DXd9rSDyQguIk', // Hip-Hop Classics
-
-    // ── EDM / Electronic ─────────────────────────────────────────────
-    '37i9dQZF1DX4dyzvuaRJ0n', // mint (EDM)
-    '37i9dQZF1DX8tZsk88tuRC', // Dance Classics
-    '37i9dQZF1DX6GwdWRQMQpq', // Electronic Classics
+    '4oYTRg0JI48jucsJOLily1', // Time Rock
+    '3r4Rx7OnTGfIM4Cboxnv7p', // Time Pop US
   ];
-  // Fetch in small batches to avoid Spotify rate limiting
-  const BATCH = 3;
-  const all = [];
-  for (let i = 0; i < ids.length; i += BATCH) {
-    const batch = ids.slice(i, i + BATCH);
-    const results = await Promise.all(
-      batch.map(id => spotifyFetch(`/playlists/${id}?fields=id,name,images,tracks(total)`).catch(() => null))
-    );
-    all.push(...results);
-    if (i + BATCH < ids.length) await new Promise(r => setTimeout(r, 200));
-  }
-  recommendedPlaylists = all.filter(p => p && p.id);
+
+  const results = await Promise.all(
+    ids.map(id => spotifyFetch(`/playlists/${id}?fields=id,name,images,tracks(total)`).catch(() => null))
+  );
+  recommendedPlaylists = results.filter(p => p && p.id);
 }
 
 // ============================================================
@@ -1788,7 +1764,7 @@ function setMode(m) {
 function updateTokenDisplay() {
   const wrap = document.getElementById('token-wrap');
   if (!wrap) return;
-  wrap.style.display = gameMode === 'standard' ? 'inline' : 'none';
+  wrap.style.display = gameMode === 'standard' ? 'inline-flex' : 'none';
   if (gameMode === 'standard') document.getElementById('token-count').textContent = tokens;
 }
 
