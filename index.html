@@ -673,19 +673,11 @@
     </div>
   </div>
   <div class="picker-footer">
-    <div style="width:100%;display:flex;flex-direction:column;gap:6px;margin-bottom:4px">
-      <label>Mode</label>
-      <div style="display:flex;gap:8px">
-        <button class="mode-btn active" id="mode-standard" onclick="setMode('standard')">Standard</button>
-        <button class="mode-btn" id="mode-hardcore" onclick="setMode('hardcore')">☠ Hardcore</button>
-      </div>
-      <div id="mode-desc" style="font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.05em;margin-top:2px">Place songs in order. Score as many as you can.</div>
-    </div>
     <div class="num-input-wrap">
       <label>Cards</label>
       <input type="number" id="num-cards" value="20" min="5" max="50">
     </div>
-    <button class="btn btn-primary" onclick="startGame()" style="flex:1">▶ &nbsp;Start Game</button>
+    <button class="btn btn-primary" onclick="startGame()" style="flex:1">☠ &nbsp;Play Hardcore</button>
     <button class="btn btn-ghost" onclick="logout()">Log out</button>
   </div>
 </div>
@@ -745,11 +737,7 @@
 
   <div class="result-banner" id="result-banner"></div>
 
-  <div class="game-controls" id="game-controls">
-    <div class="controls-row">
-      <button class="btn btn-secondary" onclick="revealYear()">👁 &nbsp;Reveal Year</button>
-    </div>
-  </div>
+  <div class="game-controls" id="game-controls"></div>
 </div>
 
 <!-- ===== GAME OVER ===== -->
@@ -791,12 +779,11 @@ let selectedPlaylistId = null;
 let selectedPlaylistName = '';
 
 // Game state
-let gameMode = 'standard'; // 'standard' | 'hardcore'
 let gameCards = [];
 let gameIndex = 0;
 let gameScore = 0;
 let gameTimeline = [];
-let gameRevealed = false;
+let pendingPlacementIndex = null;
 let currentTrackUri = null;
 let isPlaying = false;
 let deviceId = null; // Spotify Connect device
@@ -945,17 +932,6 @@ function logout() {
   localStorage.removeItem('hitster_refresh_token');
   accessToken = null;
   loginWithSpotify();
-}
-
-function setMode(m) {
-  gameMode = m;
-  document.getElementById('mode-standard').className = 'mode-btn' + (m === 'standard' ? ' active' : '');
-  document.getElementById('mode-hardcore').className = 'mode-btn' + (m === 'hardcore' ? ' active-red' : '');
-  const descs = {
-    standard: 'Place songs in order. Score as many as you can.',
-    hardcore: '☠ One strike and you\'re out. No second chances.'
-  };
-  document.getElementById('mode-desc').textContent = descs[m] || '';
 }
 
 // ============================================================
@@ -1193,12 +1169,14 @@ async function startGame() {
   gameIndex = 0;
   gameScore = 0;
   gameTimeline = [];
-  gameRevealed = false;
+  pendingPlacementIndex = null;
+
+  // Auto-place the first card as a visible reference point
+  gameTimeline.push({...gameCards[0]});
+  gameIndex = 1;
 
   document.getElementById('g-pl-name').textContent = selectedPlaylistName;
   updateScore();
-  renderTimeline();
-
   goTo('game');
   loadCard();
 }
@@ -1209,30 +1187,29 @@ async function startGame() {
 function loadCard() {
   if (gameIndex >= gameCards.length) { endGame(); return; }
   const card = gameCards[gameIndex];
-  gameRevealed = false;
+  pendingPlacementIndex = null;
   isPlaying = false;
 
-  // UI reset
+  // Counter
   const counter = document.getElementById('g-counter');
-  if (gameMode === 'hardcore') {
-    counter.textContent = `☠ Card ${gameIndex + 1}`;
-    counter.style.color = 'var(--red)';
-  } else {
-    counter.textContent = `Card ${gameIndex+1} / ${gameCards.length}`;
-    counter.style.color = '';
-  }
-  document.getElementById('g-title').textContent = card.title;
-  document.getElementById('g-artist').textContent = card.artist;
-  document.getElementById('g-year').textContent = card.year;
+  counter.textContent = `☠ Song ${gameIndex} / ${gameCards.length - 1}`;
+  counter.style.color = 'var(--red)';
+
+  // Obscure all song info until the player locks in their guess
+  const titleEl = document.getElementById('g-title');
+  titleEl.textContent = '• • • • •';
+  titleEl.style.opacity = '0.25';
+  const artistEl = document.getElementById('g-artist');
+  artistEl.textContent = '• • •';
+  artistEl.style.opacity = '0.2';
   document.getElementById('g-year').classList.add('hidden');
 
   const disc = document.getElementById('vinyl-disc');
   disc.classList.add('hidden-label');
-  disc.classList.remove('spinning','playing');
-  document.getElementById('lbl-title').textContent = card.title;
-  document.getElementById('lbl-year').textContent = card.year;
+  disc.classList.remove('spinning', 'playing');
+  document.getElementById('lbl-title').textContent = '?';
+  document.getElementById('lbl-year').textContent = '????';
 
-  // Album art
   const art = document.getElementById('album-art');
   art.classList.remove('visible');
   if (card.albumArt) { art.src = card.albumArt; }
@@ -1242,83 +1219,76 @@ function loadCard() {
   document.getElementById('play-btn').textContent = '▶';
   document.getElementById('play-btn').disabled = false;
 
-  // Auto-play the track
   currentTrackUri = card.uri;
   playTrack(card.uri);
 
-  setControls('reveal');
-  renderTimeline();
+  setControls('place-hint');
+  renderTimeline(true);
 }
 
 function setControls(mode) {
   const el = document.getElementById('game-controls');
-  if (mode === 'reveal') {
-    el.innerHTML = `<div class="controls-row"><button class="btn btn-secondary" onclick="revealYear()">👁 &nbsp;Reveal Year</button></div>`;
-  } else if (mode === 'place') {
-    el.innerHTML = `<div style="font-size:11px;color:var(--teal);letter-spacing:0.1em;text-align:center;padding:4px 0">↑ Tap a slot in the timeline to place this card ↑</div>`;
+  if (mode === 'place-hint') {
+    el.innerHTML = `<div style="font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:0.08em;text-align:center;padding:4px 0">↑ Tap a gap in the timeline to place your guess ↑</div>`;
+  } else if (mode === 'confirm') {
+    el.innerHTML = `
+      <div style="font-size:11px;color:var(--teal);letter-spacing:0.08em;text-align:center;padding:4px 0">Tap another gap to move — or lock it in</div>
+      <div class="controls-row"><button class="btn btn-primary" onclick="confirmPlacement()">✓ &nbsp;Lock In</button></div>`;
   } else if (mode === 'next') {
-    el.innerHTML = `<div class="controls-row"><button class="btn btn-primary" onclick="nextCard()">Next Card →</button></div>`;
+    el.innerHTML = `<div class="controls-row"><button class="btn btn-primary" onclick="nextCard()">Next Song →</button></div>`;
+  } else {
+    el.innerHTML = '';
   }
 }
 
-function revealYear() {
-  if (gameRevealed) return;
-  gameRevealed = true;
+function tentativePlaceCard(insertIndex) {
+  pendingPlacementIndex = insertIndex;
+  setControls('confirm');
+  renderTimeline(true);
+}
+
+function confirmPlacement() {
+  if (pendingPlacementIndex === null) return;
   const card = gameCards[gameIndex];
+  const sorted = getSorted();
+  const insertIndex = pendingPlacementIndex;
+
+  const prev = insertIndex > 0 ? sorted[insertIndex - 1] : null;
+  const next = insertIndex < sorted.length ? sorted[insertIndex] : null;
+  const correct = !(prev && card.year < prev.year) && !(next && card.year > next.year);
+
+  // Reveal all song info
+  const titleEl = document.getElementById('g-title');
+  titleEl.textContent = card.title;
+  titleEl.style.opacity = '';
+  const artistEl = document.getElementById('g-artist');
+  artistEl.textContent = card.artist;
+  artistEl.style.opacity = '';
+  document.getElementById('g-year').textContent = card.year;
+  document.getElementById('g-year').classList.remove('hidden');
+  document.getElementById('album-art').classList.add('visible');
 
   const disc = document.getElementById('vinyl-disc');
   disc.classList.remove('hidden-label');
   disc.classList.add('spinning');
   setTimeout(() => disc.classList.remove('spinning'), 900);
 
-  document.getElementById('g-year').classList.remove('hidden');
-
-  // Show album art
-  document.getElementById('album-art').classList.add('visible');
-
-  if (gameTimeline.length === 0) {
-    // Auto-place first card
-    gameTimeline.push({...card});
-    gameScore++;
-    updateScore();
-    showResult(true, '✓ First card placed! +1');
-    setControls('next');
-    return;
-  }
-
-  setControls('place');
-  renderTimeline(true);
-}
-
-function placeCard(insertIndex) {
-  if (!gameRevealed) return;
-  const card = gameCards[gameIndex];
-  const sorted = getSorted();
-
-  let correct = false;
-  const prev = insertIndex > 0 ? sorted[insertIndex-1] : null;
-  const next = insertIndex < sorted.length ? sorted[insertIndex] : null;
-  const tooEarly = prev && card.year < prev.year;
-  const tooLate = next && card.year > next.year;
-  correct = !tooEarly && !tooLate;
+  pendingPlacementIndex = null;
+  stopPlayback();
 
   if (correct) {
     gameTimeline.push({...card, justPlaced: true});
-    gameScore++; updateScore(); showResult(true, '✓ Correct! +1');
+    gameScore++;
+    updateScore();
+    showResult(true, '✓ Correct! +1');
+    setControls('next');
+    renderTimeline(false);
   } else {
-    showResult(false, '✗ Wrong position');
-    if (gameMode === 'hardcore') {
-      stopPlayback();
-      renderTimeline();
-      setTimeout(() => endGame(), 1500);
-      return;
-    }
-    gameTimeline.push({...card, justPlaced: true});
+    showResult(false, '✗ Wrong! Game Over');
+    document.getElementById('game-controls').innerHTML = '';
+    renderTimeline(false);
+    setTimeout(() => endGame(), 1800);
   }
-
-  stopPlayback();
-  setControls('next');
-  renderTimeline();
 }
 
 function nextCard() {
@@ -1342,25 +1312,18 @@ function endGame() {
   const titleEl = document.getElementById('go-title');
   const scoreEl = document.getElementById('go-score');
   const ctxEl = document.getElementById('go-context');
-  if (gameMode === 'hardcore') {
-    const survived = gameTimeline.length;
-    const total = gameCards.length;
-    if (survived === total) {
-      titleEl.textContent = 'PERFECT RUN';
-      titleEl.style.textShadow = '5px 5px 0 var(--teal)';
-      scoreEl.textContent = survived;
-      ctxEl.textContent = `All ${total} songs placed correctly!`;
-    } else {
-      titleEl.textContent = 'ELIMINATED';
-      titleEl.style.textShadow = '5px 5px 0 var(--red)';
-      scoreEl.textContent = survived;
-      ctxEl.textContent = `${survived} song${survived !== 1 ? 's' : ''} survived`;
-    }
+  const survived = gameScore;
+  const total = gameCards.length - 1; // excluding the auto-placed starter
+  if (survived >= total) {
+    titleEl.textContent = 'PERFECT RUN';
+    titleEl.style.textShadow = '5px 5px 0 var(--teal)';
+    scoreEl.textContent = survived;
+    ctxEl.textContent = `All ${total} songs placed correctly!`;
   } else {
-    titleEl.textContent = 'GAME OVER';
-    titleEl.style.textShadow = '';
-    scoreEl.textContent = gameScore;
-    ctxEl.textContent = `${gameScore} / ${gameCards.length} correct`;
+    titleEl.textContent = 'ELIMINATED';
+    titleEl.style.textShadow = '5px 5px 0 var(--red)';
+    scoreEl.textContent = survived;
+    ctxEl.textContent = `${survived} song${survived !== 1 ? 's' : ''} placed correctly`;
   }
   goTo('gameover');
 }
@@ -1376,30 +1339,41 @@ function renderTimeline(interactive = false) {
   const sorted = getSorted();
   const container = document.getElementById('timeline');
 
-  if (sorted.length === 0) {
-    container.innerHTML = interactive
-      ? `<div class="drop-zone active" onclick="placeCard(0)">+</div>`
-      : `<div style="font-size:11px;color:rgba(255,255,255,0.2);padding:0 4px;letter-spacing:0.05em">Reveal the year, then place the card.</div>`;
-    return;
-  }
+  const mkDrop = (slotIdx, label) => {
+    if (interactive && pendingPlacementIndex === slotIdx) {
+      // Ghost card — shows tentative placement position
+      return `<div class="t-card" style="border:2px dashed rgba(255,255,255,0.22);background:rgba(255,255,255,0.03);opacity:0.65;cursor:default;flex-shrink:0;">
+        <div class="t-vinyl" style="opacity:0.3"></div>
+        <div class="t-year" style="color:rgba(255,255,255,0.2)">????</div>
+        <div class="t-title" style="opacity:0.25">?</div>
+      </div>`;
+    }
+    return interactive
+      ? `<div class="drop-zone active" onclick="tentativePlaceCard(${slotIdx})" title="${label}">+</div>`
+      : '';
+  };
 
-  let html = '';
-  if (interactive) html += `<div class="drop-zone active" onclick="placeCard(0)" title="Place before ${sorted[0].year}">+</div>`;
+  let html = mkDrop(0, sorted.length ? `Before ${sorted[0].year}` : 'Place here');
 
   sorted.forEach((card, i) => {
-    html += `
-      <div class="t-card ${card.justPlaced ? 'just-placed' : ''}">
-        <div class="t-vinyl"></div>
-        <div class="t-year">${card.year}</div>
-        <div class="t-title">${card.title}</div>
-        <div class="t-artist">${card.artist}</div>
-      </div>
-    `;
-    if (interactive) html += `<div class="drop-zone active" onclick="placeCard(${i+1})" title="Place after ${card.year}">+</div>`;
+    const color = yearToColor(card.year);
+    html += `<div class="t-card ${card.justPlaced ? 'just-placed' : ''}" style="border-top:3px solid ${color};background:linear-gradient(180deg,${color}28 0%,transparent 55%);flex-shrink:0;">
+      <div class="t-vinyl"></div>
+      <div class="t-year" style="color:${color}">${card.year}</div>
+      <div class="t-title">${escHtml(card.title)}</div>
+      <div class="t-artist">${escHtml(card.artist)}</div>
+    </div>`;
+    html += mkDrop(i + 1, `After ${card.year}`);
   });
 
-  container.innerHTML = html;
+  container.innerHTML = html || `<div style="font-size:11px;color:rgba(255,255,255,0.2);padding:0 4px">—</div>`;
   container.scrollLeft = container.scrollWidth;
+}
+
+function yearToColor(year) {
+  const pct = Math.max(0, Math.min(1, (year - 1950) / 70));
+  const hue = Math.round(30 + pct * 150); // orange(30) → teal(180)
+  return `hsl(${hue}, 75%, 58%)`;
 }
 
 // ============================================================
