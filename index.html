@@ -385,8 +385,8 @@
   }
 
   .t-card {
-    width: 72px;
-    min-height: 88px;
+    width: 80px;
+    min-height: 80px;
     padding: 8px 6px;
     text-align: center;
     flex-shrink: 0;
@@ -425,6 +425,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     padding: 0 24px 16px;
     overflow: hidden;
   }
@@ -601,6 +602,13 @@
   .result-banner.correct { background: #0d3320; color: var(--teal); display: block; border-top: 1px solid rgba(29,185,84,0.3); }
   .result-banner.wrong { background: #2d0d0a; color: var(--red); display: block; border-top: 1px solid rgba(230,51,41,0.3); }
 
+  @keyframes ghostPulse {
+    0%,100% { border-color: rgba(29,185,84,0.5); box-shadow: 0 0 10px rgba(29,185,84,0.1); }
+    50% { border-color: var(--teal); box-shadow: 0 0 22px rgba(29,185,84,0.45); }
+  }
+  .t-card-ghost { animation: ghostPulse 1.1s ease-in-out infinite; }
+  .pl-section-label { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 10px; grid-column: 1 / -1; padding-top: 4px; }
+
   /* ===== GAME OVER ===== */
   #gameover {
     align-items: center; justify-content: center;
@@ -668,6 +676,7 @@
     </div>
   </div>
   <div class="screen-content">
+    <input type="text" id="playlist-search" placeholder="🔍  Search Spotify playlists…" oninput="onSearchInput(this.value)" style="margin-bottom:16px">
     <div class="playlist-grid" id="playlist-grid">
       <div class="empty-state">Loading playlists…</div>
     </div>
@@ -722,6 +731,7 @@
       </div>
 
       <div class="song-info-block">
+        <img id="revealed-art" src="" alt="" style="display:none;width:88px;height:88px;object-fit:cover;border-radius:4px;margin-bottom:10px;box-shadow:4px 4px 0 rgba(0,0,0,0.5)">
         <div class="song-title-big" id="g-title">—</div>
         <div class="song-artist-sm" id="g-artist"></div>
         <div class="song-year-big hidden" id="g-year"></div>
@@ -745,9 +755,10 @@
   <div class="go-title" id="go-title">GAME OVER</div>
   <div class="go-score" id="go-score"></div>
   <div class="go-context" id="go-context"></div>
+  <div id="go-eliminated-card" style="display:none;text-align:center;margin-top:12px;max-width:320px"></div>
   <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:24px">
     <button class="btn btn-primary" onclick="startGame()">▶ Play Again</button>
-    <button class="btn btn-secondary" onclick="goTo('picker')">Change Playlist</button>
+    <button class="btn btn-secondary" onclick="stopPlayback();goTo('picker')">Change Playlist</button>
   </div>
 </div>
 
@@ -784,10 +795,13 @@ let gameIndex = 0;
 let gameScore = 0;
 let gameTimeline = [];
 let pendingPlacementIndex = null;
+let lastCard = null;
 let currentTrackUri = null;
 let isPlaying = false;
 let deviceId = null; // Spotify Connect device
 let spotifyPlayer = null;
+let recommendedPlaylists = [];
+let searchTimeout = null;
 
 // ============================================================
 //  PKCE HELPERS
@@ -972,7 +986,7 @@ async function initApp() {
       document.getElementById('user-avatar').src = me.images[0].url;
     }
 
-    await loadPlaylists();
+    await Promise.all([loadPlaylists(), loadRecommendedPlaylists()]);
     initWebPlayback();
     goTo('picker');
   } catch(e) {
@@ -994,35 +1008,38 @@ async function loadPlaylists() {
   renderPlaylistGrid();
 }
 
-function renderPlaylistGrid() {
+function playlistCardHtml(pl) {
+  const img = pl.images && pl.images[0] ? pl.images[0].url : null;
+  const imgEl = img
+    ? `<img class="pl-img" src="${img}" alt="" loading="lazy">`
+    : `<div class="pl-img-placeholder">🎵</div>`;
+  const total = pl.tracks ? pl.tracks.total : '?';
+  return `<div class="pl-card ${selectedPlaylistId === pl.id ? 'selected' : ''}" data-id="${pl.id}" data-name="${escHtml(pl.name)}" onclick="selectPlaylist(this.dataset.id,this.dataset.name)">${imgEl}<div class="pl-info"><div class="pl-name">${escHtml(pl.name)}</div><div class="pl-count">${total} tracks</div></div></div>`;
+}
+
+function renderPlaylistGrid(searchResults = null) {
   const grid = document.getElementById('playlist-grid');
-  if (!playlists.length) {
-    grid.innerHTML = '<div class="empty-state">No playlists found on your account.</div>';
+  if (searchResults !== null) {
+    if (!searchResults.length) { grid.innerHTML = '<div class="empty-state">No playlists found.</div>'; return; }
+    grid.innerHTML = '<div class="pl-section-label">Search Results</div>' + searchResults.map(playlistCardHtml).join('');
     return;
   }
-  grid.innerHTML = playlists.map(pl => {
-    const img = pl.images && pl.images[0] ? pl.images[0].url : null;
-    const imgEl = img
-      ? `<img class="pl-img" src="${img}" alt="" loading="lazy">`
-      : `<div class="pl-img-placeholder">🎵</div>`;
-    return `
-      <div class="pl-card ${selectedPlaylistId === pl.id ? 'selected' : ''}" onclick="selectPlaylist('${pl.id}', '${escHtml(pl.name)}')">
-        ${imgEl}
-        <div class="pl-info">
-          <div class="pl-name">${escHtml(pl.name)}</div>
-          <div class="pl-count">${pl.tracks.total} tracks</div>
-        </div>
-      </div>
-    `;
-  }).join('');
+  let html = '';
+  if (playlists.length) {
+    html += '<div class="pl-section-label">My Playlists</div>' + playlists.map(playlistCardHtml).join('');
+  }
+  if (recommendedPlaylists.length) {
+    html += '<div class="pl-section-label" style="padding-top:16px">Recommended</div>' + recommendedPlaylists.map(playlistCardHtml).join('');
+  }
+  grid.innerHTML = html || '<div class="empty-state">No playlists found on your account.</div>';
   if (!selectedPlaylistId && playlists.length) selectPlaylist(playlists[0].id, playlists[0].name);
 }
 
 function selectPlaylist(id, name) {
   selectedPlaylistId = id;
   selectedPlaylistName = name;
-  document.querySelectorAll('.pl-card').forEach((c,i) => {
-    c.classList.toggle('selected', playlists[i] && playlists[i].id === id);
+  document.querySelectorAll('.pl-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.id === id);
   });
 }
 
@@ -1125,7 +1142,7 @@ async function togglePlayback() {
 // ============================================================
 async function startGame() {
   if (!selectedPlaylistId) { alert('Please select a playlist.'); return; }
-
+  stopPlayback();
   goTo('loading');
   document.getElementById('loading-spinner').style.display = '';
   document.getElementById('loading-text').style.display = '';
@@ -1213,6 +1230,9 @@ function loadCard() {
   const art = document.getElementById('album-art');
   art.classList.remove('visible');
   if (card.albumArt) { art.src = card.albumArt; }
+  const revArt = document.getElementById('revealed-art');
+  revArt.style.display = 'none';
+  revArt.src = '';
 
   document.getElementById('result-banner').className = 'result-banner';
   document.getElementById('player-status').textContent = 'Ready to play';
@@ -1267,6 +1287,8 @@ function confirmPlacement() {
   document.getElementById('g-year').textContent = card.year;
   document.getElementById('g-year').classList.remove('hidden');
   document.getElementById('album-art').classList.add('visible');
+  const revArt = document.getElementById('revealed-art');
+  if (card.albumArt) { revArt.src = card.albumArt; revArt.style.display = ''; }
 
   const disc = document.getElementById('vinyl-disc');
   disc.classList.remove('hidden-label');
@@ -1274,7 +1296,6 @@ function confirmPlacement() {
   setTimeout(() => disc.classList.remove('spinning'), 900);
 
   pendingPlacementIndex = null;
-  stopPlayback();
 
   if (correct) {
     gameTimeline.push({...card, justPlaced: true});
@@ -1284,6 +1305,7 @@ function confirmPlacement() {
     setControls('next');
     renderTimeline(false);
   } else {
+    lastCard = {...card};
     showResult(false, '✗ Wrong! Game Over');
     document.getElementById('game-controls').innerHTML = '';
     renderTimeline(false);
@@ -1308,22 +1330,33 @@ function updateScore() { document.getElementById('g-score').textContent = gameSc
 function getSorted() { return [...gameTimeline].sort((a,b) => a.year - b.year); }
 
 function endGame() {
-  stopPlayback();
   const titleEl = document.getElementById('go-title');
   const scoreEl = document.getElementById('go-score');
   const ctxEl = document.getElementById('go-context');
+  const elimEl = document.getElementById('go-eliminated-card');
   const survived = gameScore;
   const total = gameCards.length - 1; // excluding the auto-placed starter
   if (survived >= total) {
+    stopPlayback();
     titleEl.textContent = 'PERFECT RUN';
     titleEl.style.textShadow = '5px 5px 0 var(--teal)';
     scoreEl.textContent = survived;
     ctxEl.textContent = `All ${total} songs placed correctly!`;
+    elimEl.style.display = 'none';
   } else {
     titleEl.textContent = 'ELIMINATED';
     titleEl.style.textShadow = '5px 5px 0 var(--red)';
     scoreEl.textContent = survived;
     ctxEl.textContent = `${survived} song${survived !== 1 ? 's' : ''} placed correctly`;
+    if (lastCard) {
+      const artHtml = lastCard.albumArt
+        ? `<img src="${lastCard.albumArt}" style="width:100px;height:100px;object-fit:cover;border-radius:4px;box-shadow:4px 4px 0 rgba(0,0,0,0.5);margin-bottom:10px">`
+        : '';
+      elimEl.innerHTML = `${artHtml}<div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:6px">the song that got you</div><div style="font-family:'Playfair Display',serif;font-style:italic;font-size:18px;margin-bottom:4px">${escHtml(lastCard.title)}</div><div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:6px">${escHtml(lastCard.artist)}</div><div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--gold)">${lastCard.year}</div>`;
+      elimEl.style.display = 'block';
+    } else {
+      elimEl.style.display = 'none';
+    }
   }
   goTo('gameover');
 }
@@ -1342,10 +1375,10 @@ function renderTimeline(interactive = false) {
   const mkDrop = (slotIdx, label) => {
     if (interactive && pendingPlacementIndex === slotIdx) {
       // Ghost card — shows tentative placement position
-      return `<div class="t-card" style="border:2px dashed rgba(255,255,255,0.22);background:rgba(255,255,255,0.03);opacity:0.65;cursor:default;flex-shrink:0;">
-        <div class="t-vinyl" style="opacity:0.3"></div>
-        <div class="t-year" style="color:rgba(255,255,255,0.2)">????</div>
-        <div class="t-title" style="opacity:0.25">?</div>
+      return `<div class="t-card t-card-ghost" style="border:2px solid var(--teal);background:rgba(29,185,84,0.1);cursor:default;flex-shrink:0;">
+        <div class="t-vinyl"></div>
+        <div class="t-year" style="color:var(--teal)">????</div>
+        <div class="t-title" style="color:rgba(29,185,84,0.8)">here?</div>
       </div>`;
     }
     return interactive
@@ -1374,6 +1407,39 @@ function yearToColor(year) {
   const pct = Math.max(0, Math.min(1, (year - 1950) / 70));
   const hue = Math.round(30 + pct * 150); // orange(30) → teal(180)
   return `hsl(${hue}, 75%, 58%)`;
+}
+
+// ============================================================
+//  PLAYLIST SEARCH & RECOMMENDED
+// ============================================================
+function onSearchInput(val) {
+  clearTimeout(searchTimeout);
+  const v = val.trim();
+  if (!v) { renderPlaylistGrid(); return; }
+  searchTimeout = setTimeout(() => searchPlaylists(v), 380);
+}
+
+async function searchPlaylists(query) {
+  const grid = document.getElementById('playlist-grid');
+  grid.innerHTML = '<div class="empty-state">Searching…</div>';
+  const data = await spotifyFetch(`/search?type=playlist&q=${encodeURIComponent(query)}&limit=16`);
+  if (!data || !data.playlists) { grid.innerHTML = '<div class="empty-state">No results found.</div>'; return; }
+  renderPlaylistGrid((data.playlists.items || []).filter(p => p && p.tracks && p.tracks.total > 0));
+}
+
+async function loadRecommendedPlaylists() {
+  const ids = [
+    '37i9dQZF1DX4UtSsGT1Sbe', // All Out 80s
+    '37i9dQZF1DXbTxeAdrVG2l', // All Out 90s
+    '37i9dQZF1DX4o1oenSJRJd', // All Out 2000s
+    '37i9dQZF1DX10zKzsJ2jva', // All Out 70s
+    '37i9dQZF1DWXRqgorJj26U', // Rock Classics
+    '37i9dQZF1DXcBWIGoYBM5M', // Today's Top Hits
+  ];
+  const results = await Promise.all(
+    ids.map(id => spotifyFetch(`/playlists/${id}?fields=id,name,images,tracks(total)`).catch(() => null))
+  );
+  recommendedPlaylists = results.filter(p => p && p.id);
 }
 
 // ============================================================
