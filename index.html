@@ -743,8 +743,8 @@
     <div class="pl-badge" id="g-pl-name"></div>
     <div class="hdr-pills">
       <span class="hdr-pill hdr-counter" id="g-counter"></span>
-      <span class="hdr-pill hdr-token" id="token-wrap" style="display:none">🎫&#8202;<span id="token-count">3</span></span>
-      <span class="hdr-pill hdr-score">★&#8202;<span id="g-score">0</span></span>
+      <span class="hdr-pill hdr-token" id="token-wrap" style="display:none">♥ <span id="token-count">3</span></span>
+      <span class="hdr-pill hdr-score">★ <span id="g-score">0</span></span>
     </div>
   </div>
 
@@ -856,6 +856,11 @@ let winTarget = 20;
 let pendingArtistGuess = null;
 let pendingTitleGuess = null;
 let acTimers = {};
+
+// Platform detection (iOS Safari cannot use Web Playback SDK)
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let spotifyPlayer = null;
 
 // ============================================================
 //  PKCE HELPERS
@@ -1102,10 +1107,50 @@ function escHtml(s) {
 }
 
 // ============================================================
-//  SPOTIFY CONNECT PLAYBACK (device-based, works on iOS Safari)
+//  PLAYBACK — Web Playback SDK on desktop, REST API on iOS
 // ============================================================
 function initDevicePlayback() {
-  refreshDevices();
+  if (isIOS) {
+    // iOS Safari: use Spotify Connect REST API (requires Spotify app open)
+    refreshDevices();
+  } else {
+    // Desktop: load Web Playback SDK (creates virtual device in browser)
+    loadSpotifySDK();
+    const btn = document.getElementById('refresh-devices-btn');
+    if (btn) btn.style.display = 'none';
+  }
+}
+
+function loadSpotifySDK() {
+  const statusEl = document.getElementById('player-status');
+  if (statusEl) statusEl.textContent = 'Loading player…';
+  window.onSpotifyWebPlaybackSDKReady = () => {
+    spotifyPlayer = new Spotify.Player({
+      name: 'Timeline FM',
+      getOAuthToken: cb => cb(accessToken),
+      volume: 0.8
+    });
+    spotifyPlayer.addListener('ready', ({ device_id }) => {
+      deviceId = device_id;
+      const s = document.getElementById('player-status');
+      if (s) s.textContent = '▶ Ready';
+    });
+    spotifyPlayer.addListener('not_ready', () => {
+      deviceId = null;
+      const s = document.getElementById('player-status');
+      if (s) s.textContent = 'Player disconnected — reload page';
+    });
+    spotifyPlayer.addListener('initialization_error', ({ message }) => console.error('SDK init:', message));
+    spotifyPlayer.addListener('authentication_error', ({ message }) => console.error('SDK auth:', message));
+    spotifyPlayer.addListener('account_error', () => {
+      const s = document.getElementById('player-status');
+      if (s) s.textContent = 'Spotify Premium required';
+    });
+    spotifyPlayer.connect();
+  };
+  const script = document.createElement('script');
+  script.src = 'https://sdk.scdn.co/spotify-player.js';
+  document.head.appendChild(script);
 }
 
 async function refreshDevices() {
@@ -1114,25 +1159,35 @@ async function refreshDevices() {
   const data = await spotifyFetch('/me/player/devices');
   if (!data || !data.devices || !data.devices.length) {
     deviceId = null;
-    if (statusEl) statusEl.textContent = 'Open Spotify on your device first';
+    if (statusEl) statusEl.textContent = 'Open Spotify app first';
     return;
   }
   const active = data.devices.find(d => d.is_active) || data.devices[0];
   deviceId = active.id;
-  if (statusEl) statusEl.textContent = '▶️ ' + active.name;
+  if (statusEl) statusEl.textContent = '📱 ' + active.name;
 }
 
 async function playTrack(uri) {
   currentTrackUri = uri;
   if (!uri) return;
+  // On iOS, auto-refresh devices if we don't have one yet
+  if (!deviceId && isIOS) await refreshDevices();
   if (!deviceId) {
     const statusEl = document.getElementById('player-status');
-    if (statusEl) statusEl.textContent = 'Open Spotify on your device first';
+    if (statusEl) statusEl.textContent = isIOS ? 'Open Spotify app first, then tap ↺' : 'Player not ready';
     return;
   }
   const statusEl = document.getElementById('player-status');
   if (statusEl) statusEl.textContent = '♫ Playing…';
   document.getElementById('vinyl-disc').classList.add('playing');
+  if (isIOS) {
+    // Transfer playback to iOS Spotify app to make it the active device
+    await spotifyFetch('/me/player', {
+      method: 'PUT',
+      body: JSON.stringify({ device_ids: [deviceId], play: false })
+    });
+    await new Promise(r => setTimeout(r, 400));
+  }
   await spotifyFetch(`/me/player/play?device_id=${deviceId}`, {
     method: 'PUT',
     body: JSON.stringify({ uris: [uri], position_ms: 30000 })
@@ -1142,12 +1197,14 @@ async function playTrack(uri) {
 }
 
 async function stopPlayback() {
-  if (deviceId) {
-    await spotifyFetch('/me/player/pause', { method: 'PUT' }).catch(() => {});
-  }
   isPlaying = false;
   document.getElementById('play-btn').textContent = '▶';
   document.getElementById('vinyl-disc').classList.remove('playing');
+  if (spotifyPlayer) {
+    spotifyPlayer.pause().catch(() => {});
+  } else if (deviceId) {
+    await spotifyFetch('/me/player/pause', { method: 'PUT' }).catch(() => {});
+  }
 }
 
 async function togglePlayback() {
@@ -1207,16 +1264,6 @@ async function startGame() {
   winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 20, poolSize - 1);
   gameCards = tracks.slice(0, poolSize);
 
-  // MusicBrainz ISRC lookup to correct release years
-  document.getElementById('loading-text').textContent = 'Verifying release years…';
-  await enrichYearsFromMusicBrainz(gameCards);
-  // Re-filter in case any year ended up out of range after enrichment
-  gameCards = gameCards.filter(t => t.year >= 1900 && t.year <= 2025);
-  if (gameCards.length < 3) {
-    alert('Not enough valid tracks after year verification. Try another playlist.');
-    goTo('picker');
-    return;
-  }
   gameIndex = 0;
   gameScore = 0;
   gameTimeline = [];
@@ -1228,6 +1275,12 @@ async function startGame() {
   tokensEarned = 0;
   tokensSpent = 0;
 
+  // Enrich the anchor card's year before placing it
+  if (gameCards[0].isrc) {
+    gameCards[0].mbChecked = true;
+    const mbYear = await mbLookup(gameCards[0].isrc);
+    if (mbYear !== null) gameCards[0].year = mbYear;
+  }
   // Auto-place the first card as a visible reference point
   gameTimeline.push({...gameCards[0]});
   gameIndex = 1;
@@ -1236,7 +1289,7 @@ async function startGame() {
   updateScore();
   updateTokenDisplay();
   goTo('game');
-  loadCard();
+  await loadCard();
 }
 
 // ============================================================
@@ -1281,9 +1334,15 @@ async function enrichYearsFromMusicBrainz(cards) {
 // ============================================================
 //  GAME — CARD LOGIC
 // ============================================================
-function loadCard() {
+async function loadCard() {
   if (gameIndex >= gameCards.length) { endGame(); return; }
   const card = gameCards[gameIndex];
+  // Lazy MusicBrainz year correction — done once per card just before it's shown
+  if (card.isrc && !card.mbChecked) {
+    card.mbChecked = true;
+    const mbYear = await mbLookup(card.isrc);
+    if (mbYear !== null) card.year = mbYear;
+  }
   pendingPlacementIndex = null;
   pendingArtistGuess = null;
   pendingTitleGuess = null;
@@ -1460,11 +1519,11 @@ function confirmPlacement() {
   }
 }
 
-function nextCard() {
+async function nextCard() {
   // Clear justPlaced flags
   gameTimeline.forEach(c => delete c.justPlaced);
   gameIndex++;
-  loadCard();
+  await loadCard();
 }
 
 function showResult(ok, msg) {
