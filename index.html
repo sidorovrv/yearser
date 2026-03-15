@@ -821,6 +821,7 @@ const HARDCODED_CLIENT_ID = '__SPOTIFY_CLIENT_ID__';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 const SCOPES = [
   'user-read-private',
+  'user-library-read',
   'playlist-read-private',
   'playlist-read-collaborative',
   'user-read-playback-state',
@@ -1050,6 +1051,7 @@ async function initApp() {
     }
 
     await Promise.all([loadPlaylists(), loadRecommendedPlaylists()]);
+    renderPlaylistGrid();
     initDevicePlayback();
     goTo('picker');
   } catch(e) {
@@ -1073,7 +1075,6 @@ async function loadPlaylists() {
   if (likedData && typeof likedData.total === 'number' && likedData.total > 0) {
     playlists.unshift({ id: '__liked__', name: '♥ Liked Songs', images: [], tracks: { total: likedData.total } });
   }
-  renderPlaylistGrid();
 }
 
 function playlistCardHtml(pl) {
