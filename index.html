@@ -636,6 +636,11 @@
   .mt16 { margin-top: 16px; }
   .empty-state { text-align:center; padding:48px; color:rgba(255,255,255,0.2); }
   .error-box { background: #2d0d0a; border: 1px solid rgba(230,51,41,0.3); padding: 14px 18px; font-size: 12px; color: #ff9b97; margin-top: 12px; }
+
+  .mode-btn { padding: 8px 22px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; border: 1.5px solid rgba(255,255,255,0.15); background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.15s; }
+  .mode-btn:hover { border-color: rgba(255,255,255,0.4); color: var(--cream); }
+  .mode-btn.active { border-color: var(--teal); color: var(--teal); background: rgba(29,185,84,0.1); }
+  .mode-btn.active-red { border-color: var(--red); color: var(--red); background: rgba(230,51,41,0.1); }
 </style>
 </head>
 <body>
@@ -668,6 +673,14 @@
     </div>
   </div>
   <div class="picker-footer">
+    <div style="width:100%;display:flex;flex-direction:column;gap:6px;margin-bottom:4px">
+      <label>Mode</label>
+      <div style="display:flex;gap:8px">
+        <button class="mode-btn active" id="mode-standard" onclick="setMode('standard')">Standard</button>
+        <button class="mode-btn" id="mode-hardcore" onclick="setMode('hardcore')">☠ Hardcore</button>
+      </div>
+      <div id="mode-desc" style="font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:0.05em;margin-top:2px">Place songs in order. Score as many as you can.</div>
+    </div>
     <div class="num-input-wrap">
       <label>Cards</label>
       <input type="number" id="num-cards" value="20" min="5" max="50">
@@ -741,7 +754,7 @@
 
 <!-- ===== GAME OVER ===== -->
 <div id="gameover" class="screen">
-  <div class="go-title">GAME OVER</div>
+  <div class="go-title" id="go-title">GAME OVER</div>
   <div class="go-score" id="go-score"></div>
   <div class="go-context" id="go-context"></div>
   <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:24px">
@@ -760,13 +773,11 @@ const HARDCODED_CLIENT_ID = '__SPOTIFY_CLIENT_ID__';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 const SCOPES = [
   'user-read-private',
-  'user-read-email',
   'playlist-read-private',
   'playlist-read-collaborative',
   'user-read-playback-state',
   'user-modify-playback-state',
-  'streaming',
-  'user-read-currently-playing'
+  'streaming'
 ].join(' ');
 
 // ============================================================
@@ -780,6 +791,7 @@ let selectedPlaylistId = null;
 let selectedPlaylistName = '';
 
 // Game state
+let gameMode = 'standard'; // 'standard' | 'hardcore'
 let gameCards = [];
 let gameIndex = 0;
 let gameScore = 0;
@@ -933,6 +945,17 @@ function logout() {
   localStorage.removeItem('hitster_refresh_token');
   accessToken = null;
   loginWithSpotify();
+}
+
+function setMode(m) {
+  gameMode = m;
+  document.getElementById('mode-standard').className = 'mode-btn' + (m === 'standard' ? ' active' : '');
+  document.getElementById('mode-hardcore').className = 'mode-btn' + (m === 'hardcore' ? ' active-red' : '');
+  const descs = {
+    standard: 'Place songs in order. Score as many as you can.',
+    hardcore: '☠ One strike and you\'re out. No second chances.'
+  };
+  document.getElementById('mode-desc').textContent = descs[m] || '';
 }
 
 // ============================================================
@@ -1190,7 +1213,14 @@ function loadCard() {
   isPlaying = false;
 
   // UI reset
-  document.getElementById('g-counter').textContent = `Card ${gameIndex+1} / ${gameCards.length}`;
+  const counter = document.getElementById('g-counter');
+  if (gameMode === 'hardcore') {
+    counter.textContent = `☠ Card ${gameIndex + 1}`;
+    counter.style.color = 'var(--red)';
+  } else {
+    counter.textContent = `Card ${gameIndex+1} / ${gameCards.length}`;
+    counter.style.color = '';
+  }
   document.getElementById('g-title').textContent = card.title;
   document.getElementById('g-artist').textContent = card.artist;
   document.getElementById('g-year').textContent = card.year;
@@ -1272,9 +1302,19 @@ function placeCard(insertIndex) {
   const tooLate = next && card.year > next.year;
   correct = !tooEarly && !tooLate;
 
-  gameTimeline.push({...card, justPlaced: true});
-  if (correct) { gameScore++; updateScore(); showResult(true, '✓ Correct! +1'); }
-  else { showResult(false, '✗ Wrong position'); }
+  if (correct) {
+    gameTimeline.push({...card, justPlaced: true});
+    gameScore++; updateScore(); showResult(true, '✓ Correct! +1');
+  } else {
+    showResult(false, '✗ Wrong position');
+    if (gameMode === 'hardcore') {
+      stopPlayback();
+      renderTimeline();
+      setTimeout(() => endGame(), 1500);
+      return;
+    }
+    gameTimeline.push({...card, justPlaced: true});
+  }
 
   stopPlayback();
   setControls('next');
@@ -1299,8 +1339,29 @@ function getSorted() { return [...gameTimeline].sort((a,b) => a.year - b.year); 
 
 function endGame() {
   stopPlayback();
-  document.getElementById('go-score').textContent = gameScore;
-  document.getElementById('go-context').textContent = `${gameScore} / ${gameCards.length} correct`;
+  const titleEl = document.getElementById('go-title');
+  const scoreEl = document.getElementById('go-score');
+  const ctxEl = document.getElementById('go-context');
+  if (gameMode === 'hardcore') {
+    const survived = gameTimeline.length;
+    const total = gameCards.length;
+    if (survived === total) {
+      titleEl.textContent = 'PERFECT RUN';
+      titleEl.style.textShadow = '5px 5px 0 var(--teal)';
+      scoreEl.textContent = survived;
+      ctxEl.textContent = `All ${total} songs placed correctly!`;
+    } else {
+      titleEl.textContent = 'ELIMINATED';
+      titleEl.style.textShadow = '5px 5px 0 var(--red)';
+      scoreEl.textContent = survived;
+      ctxEl.textContent = `${survived} song${survived !== 1 ? 's' : ''} survived`;
+    }
+  } else {
+    titleEl.textContent = 'GAME OVER';
+    titleEl.style.textShadow = '';
+    scoreEl.textContent = gameScore;
+    ctxEl.textContent = `${gameScore} / ${gameCards.length} correct`;
+  }
   goTo('gameover');
 }
 
