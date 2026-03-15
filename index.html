@@ -654,7 +654,6 @@
 </div>
 
 <!-- ===== PLAYLIST PICKER ===== -->
-<!-- ===== PLAYLIST PICKER ===== -->
 <div id="picker" class="screen">
   <div class="screen-header">
     <div class="screen-title">Pick a Playlist</div>
@@ -1054,7 +1053,10 @@ async function startGame() {
   if (!selectedPlaylistId) { alert('Please select a playlist.'); return; }
 
   goTo('loading');
-  document.querySelector('#loading .loading-text').textContent = 'Loading tracks…';
+  document.getElementById('loading-spinner').style.display = '';
+  document.getElementById('loading-text').style.display = '';
+  document.getElementById('loading-error').style.display = 'none';
+  document.getElementById('loading-text').textContent = 'Loading tracks…';
 
   // Fetch all tracks from playlist
   let tracks = [];
