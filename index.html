@@ -342,8 +342,8 @@
   }
 
   .hdr-pills { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-  .hdr-pill { font-family: 'Bebas Neue', cursive; font-size: 15px; line-height: 1; padding: 3px 7px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
-  .hdr-counter { font-family: 'DM Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.3); padding: 4px 6px; border-color: rgba(255,255,255,0.07); }
+  .hdr-pill { font-family: 'Bebas Neue', cursive; font-size: 15px; line-height: 1; padding: 0 7px; height: 26px; display: inline-flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
+  .hdr-counter { font-family: 'DM Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.3); padding: 0 6px; border-color: rgba(255,255,255,0.07); }
   .hdr-token { color: var(--teal); border-color: rgba(29,185,84,0.25); background: rgba(29,185,84,0.08); }
   .hdr-score { color: var(--gold); border-color: rgba(212,168,67,0.25); background: rgba(212,168,67,0.06); }
 
@@ -680,7 +680,7 @@
   .mode-btn.active { border-color: var(--teal); color: var(--teal); background: rgba(29,185,84,0.1); }
   .mode-btn.active-red { border-color: var(--red); color: var(--red); background: rgba(230,51,41,0.1); }
   .ac-wrap { position: relative; }
-  .ac-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--cream); padding: 8px 12px; font-family: 'DM Mono', monospace; font-size: 11px; outline: none; transition: border-color 0.15s; }
+  .ac-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--cream); padding: 8px 12px; font-family: 'DM Mono', monospace; font-size: 16px; outline: none; transition: border-color 0.15s; }
   .ac-input:focus { border-color: var(--teal); }
   .ac-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #111; border: 1px solid rgba(255,255,255,0.12); border-top: none; z-index: 200; max-height: 140px; overflow-y: auto; display: none; }
   .ac-item { padding: 7px 12px; font-size: 11px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -765,7 +765,7 @@
     <div class="current-section">
       <div class="current-label">Current Card</div>
 
-      <div class="vinyl-wrap">
+      <div class="vinyl-wrap" id="vinyl-wrap">
         <img class="album-art" id="album-art" src="" alt="">
         <div class="vinyl-disc hidden-label" id="vinyl-disc">
           <div class="vinyl-label">
@@ -785,8 +785,12 @@
       <!-- Spotify player -->
       <div class="spotify-player" id="spotify-player">
         <div class="player-status" id="player-status">Searching for Spotify…</div>
-        <button class="player-btn" id="refresh-devices-btn" onclick="refreshDevices()" title="Refresh Devices" style="background:rgba(255,255,255,0.08);color:var(--cream);width:34px;height:34px;font-size:16px;margin-right:-4px">↺</button>
+        <button class="player-btn" id="refresh-devices-btn" onclick="retryDevices()" title="Refresh Devices" style="background:rgba(255,255,255,0.08);color:var(--cream);width:34px;height:34px;font-size:16px;margin-right:-4px">↺</button>
         <button class="player-btn" id="play-btn" onclick="togglePlayback()" title="Play/Pause">▶</button>
+      </div>
+      <div id="no-device-banner" style="display:none;background:#2d1a00;border:1px solid rgba(255,140,0,0.35);padding:9px 14px;margin-top:6px;width:100%;max-width:340px;font-size:11px;color:#ffb347;letter-spacing:0.06em;display:none;align-items:center;gap:10px;flex-shrink:0;">
+        <span style="flex:1">Open Spotify on your phone to enable playback</span>
+        <button onclick="retryDevices()" style="background:rgba(255,140,0,0.2);border:1px solid rgba(255,140,0,0.5);color:#ffb347;padding:5px 12px;font-size:11px;cursor:pointer;white-space:nowrap;">Retry</button>
       </div>
     </div>
   </div>
@@ -1095,11 +1099,11 @@ function renderPlaylistGrid(searchResults = null) {
     return;
   }
   let html = '';
-  if (playlists.length) {
-    html += '<div class="pl-section-label">My Playlists</div>' + playlists.map(playlistCardHtml).join('');
-  }
   if (recommendedPlaylists.length) {
-    html += '<div class="pl-section-label" style="padding-top:16px">Recommended</div>' + recommendedPlaylists.map(playlistCardHtml).join('');
+    html += '<div class="pl-section-label">Recommended</div>' + recommendedPlaylists.map(playlistCardHtml).join('');
+  }
+  if (playlists.length) {
+    html += '<div class="pl-section-label" style="padding-top:16px">My Playlists</div>' + playlists.map(playlistCardHtml).join('');
   }
   grid.innerHTML = html || '<div class="empty-state">No playlists found on your account.</div>';
   if (!selectedPlaylistId && playlists.length) selectPlaylist(playlists[0].id, playlists[0].name);
@@ -1170,35 +1174,81 @@ async function refreshDevices() {
   const data = await spotifyFetch('/me/player/devices');
   if (!data || !data.devices || !data.devices.length) {
     deviceId = null;
-    if (statusEl) statusEl.textContent = 'Open Spotify, start a song, then tap ↺';
-    return;
+    if (statusEl) statusEl.textContent = 'No devices found';
+    return null;
   }
+  // Prefer active device; fall back to first available
   const active = data.devices.find(d => d.is_active) || data.devices[0];
   deviceId = active.id;
-  if (statusEl) statusEl.textContent = '📱 ' + active.name;
+  if (statusEl) statusEl.textContent = (active.is_active ? '▶ ' : '📱 ') + active.name;
+  hideNoDeviceBanner();
+  return active;
+}
+
+function showNoDeviceBanner() {
+  const b = document.getElementById('no-device-banner');
+  if (b) b.style.display = 'flex';
+  const playBtn = document.getElementById('play-btn');
+  if (playBtn) playBtn.disabled = true;
+}
+
+function hideNoDeviceBanner() {
+  const b = document.getElementById('no-device-banner');
+  if (b) b.style.display = 'none';
+  const playBtn = document.getElementById('play-btn');
+  if (playBtn) playBtn.disabled = false;
+}
+
+async function retryDevices() {
+  const device = await refreshDevices();
+  // If a track is loaded but paused due to no device, auto-play after finding one
+  if (device && currentTrackUri && !isPlaying) {
+    await playTrack(currentTrackUri);
+  }
 }
 
 async function playTrack(uri) {
   currentTrackUri = uri;
   if (!uri) return;
-  // On iOS, auto-refresh devices if we don't have one yet
-  if (!deviceId && isIOS) await refreshDevices();
-  if (!deviceId) {
+
+  // On desktop the SDK manages deviceId directly — skip REST device lookup if already ready
+  if (!spotifyPlayer) {
+    // REST path (iOS or SDK not yet ready): always re-query devices before playing
     const statusEl = document.getElementById('player-status');
-    if (statusEl) statusEl.textContent = isIOS ? 'Open Spotify, start a song, then tap ↺' : 'Player not ready';
+    if (statusEl) statusEl.textContent = 'Finding device…';
+    const data = await spotifyFetch('/me/player/devices');
+    if (!data || !data.devices || !data.devices.length) {
+      deviceId = null;
+      showNoDeviceBanner();
+      if (statusEl) statusEl.textContent = 'No device found';
+      return;
+    }
+    hideNoDeviceBanner();
+    const active = data.devices.find(d => d.is_active);
+    const any = data.devices[0];
+    if (active) {
+      deviceId = active.id;
+    } else {
+      // Found a device but it's not active — transfer playback to wake it
+      deviceId = any.id;
+      if (statusEl) statusEl.textContent = '⚡ Waking ' + any.name + '…';
+      await spotifyFetch('/me/player', {
+        method: 'PUT',
+        body: JSON.stringify({ device_ids: [deviceId], play: false })
+      });
+      await new Promise(r => setTimeout(r, 800));
+    }
+    if (statusEl) statusEl.textContent = '♫ Playing…';
+  }
+
+  if (!deviceId) {
+    showNoDeviceBanner();
     return;
   }
+
+  document.getElementById('vinyl-disc').classList.add('playing');
   const statusEl = document.getElementById('player-status');
   if (statusEl) statusEl.textContent = '♫ Playing…';
-  document.getElementById('vinyl-disc').classList.add('playing');
-  if (isIOS) {
-    // Transfer playback to iOS Spotify app to make it the active device
-    await spotifyFetch('/me/player', {
-      method: 'PUT',
-      body: JSON.stringify({ device_ids: [deviceId], play: false })
-    });
-    await new Promise(r => setTimeout(r, 400));
-  }
   await spotifyFetch(`/me/player/play?device_id=${deviceId}`, {
     method: 'PUT',
     body: JSON.stringify({ uris: [uri], position_ms: 30000 })
@@ -1385,6 +1435,7 @@ async function loadCard() {
   disc.classList.remove('spinning', 'playing');
   document.getElementById('lbl-title').textContent = '?';
   document.getElementById('lbl-year').textContent = '????';
+  document.getElementById('vinyl-wrap').style.display = '';
 
   const art = document.getElementById('album-art');
   art.classList.remove('visible');
@@ -1474,10 +1525,8 @@ function confirmPlacement() {
   const revArt = document.getElementById('revealed-art');
   if (card.albumArt) { revArt.src = card.albumArt; revArt.style.display = ''; }
 
-  const disc = document.getElementById('vinyl-disc');
-  disc.classList.remove('hidden-label');
-  disc.classList.add('spinning');
-  setTimeout(() => disc.classList.remove('spinning'), 900);
+  // Hide the vinyl disc — show only the album art once locked in
+  document.getElementById('vinyl-wrap').style.display = 'none';
 
   pendingPlacementIndex = null;
 
@@ -1494,7 +1543,7 @@ function confirmPlacement() {
       tokensEarned++;
     }
   }
-  const guessFeedback = !guessAttempted ? '' : nameBonus ? ' · +🎫 Guess correct!' : ' · Guess wrong';
+  const guessFeedback = !guessAttempted ? '' : nameBonus ? ' · +♥ Guess correct!' : ' · Guess wrong';
   pendingArtistGuess = null;
   pendingTitleGuess = null;
 
@@ -1512,7 +1561,7 @@ function confirmPlacement() {
       renderTimeline(false);
     }
   } else {
-    lastCard = {...card};
+    lastCard = {...card, guessedAfter: prev ? prev.year : null, guessedBefore: next ? next.year : null};
     if (gameMode === 'hardcore') {
       showResult(false, `✗ Wrong! Eliminated${guessFeedback}`);
       document.getElementById('game-controls').innerHTML = '';
@@ -1528,7 +1577,7 @@ function confirmPlacement() {
         renderTimeline(false);
         setTimeout(() => endGame(), 1800);
       } else {
-        showResult(false, `✗ Wrong — ${tokens} token${tokens !== 1 ? 's' : ''} left${guessFeedback}`);
+        showResult(false, `✗ Wrong — ${tokens} heart${tokens !== 1 ? 's' : ''} left${guessFeedback}`);
         setControls('next');
         renderTimeline(false);
       }
@@ -1581,7 +1630,7 @@ function endGame() {
     plEl.textContent = selectedPlaylistName;
     plEl.style.display = '';
     if (gameMode === 'standard') {
-      tokenStatsEl.innerHTML = `♥ +${tokensEarned} earned &nbsp;·&nbsp; 💔 −${tokensSpent} spent &nbsp;·&nbsp; ♥ ${Math.max(0, tokens)} remaining`;
+      tokenStatsEl.innerHTML = `♥ &nbsp;+${tokensEarned} earned &nbsp;·&nbsp; ${tokensSpent} spent &nbsp;·&nbsp; ${Math.max(0, tokens)} remaining`;
       tokenStatsEl.style.display = '';
     } else {
       tokenStatsEl.style.display = 'none';
@@ -1590,7 +1639,16 @@ function endGame() {
       const artHtml = lastCard.albumArt
         ? `<img src="${lastCard.albumArt}" style="width:100px;height:100px;object-fit:cover;border-radius:4px;box-shadow:4px 4px 0 rgba(0,0,0,0.5);margin-bottom:10px">`
         : '';
-      elimEl.innerHTML = `${artHtml}<div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:6px">the song that got you</div><div style="font-family:'Playfair Display',serif;font-style:italic;font-size:18px;margin-bottom:4px">${escHtml(lastCard.title)}</div><div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:6px">${escHtml(lastCard.artist)}</div><div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--gold)">${lastCard.year}</div>`;
+      const rangeFrom = lastCard.guessedAfter != null ? lastCard.guessedAfter : null;
+      const rangeTo = lastCard.guessedBefore != null ? lastCard.guessedBefore : null;
+      const rangeStr = rangeFrom != null && rangeTo != null ? `${rangeFrom} – ${rangeTo}`
+        : rangeFrom != null ? `after ${rangeFrom}`
+        : rangeTo != null ? `before ${rangeTo}`
+        : null;
+      const guessRangeHtml = rangeStr
+        ? `<div style="font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:0.12em;margin-top:8px">YOU GUESSED: <span style="color:rgba(255,255,255,0.55)">${rangeStr}</span></div>`
+        : '';
+      elimEl.innerHTML = `${artHtml}<div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:6px">the song that got you</div><div style="font-family:'Playfair Display',serif;font-style:italic;font-size:18px;margin-bottom:4px">${escHtml(lastCard.title)}</div><div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:6px">${escHtml(lastCard.artist)}</div><div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--gold)">${lastCard.year}</div>${guessRangeHtml}`;
       elimEl.style.display = 'block';
     } else {
       elimEl.style.display = 'none';
@@ -1628,9 +1686,10 @@ function renderTimeline(interactive = false) {
 
   sorted.forEach((card, i) => {
     const color = yearToColor(card.year);
-    const artBg = card.albumArt ? `,url(${card.albumArt}) center/cover no-repeat` : '';
-    html += `<div class="t-card ${card.justPlaced ? 'just-placed' : ''}" style="border-top:3px solid ${color};background:linear-gradient(180deg,${color}50 0%,rgba(0,0,0,0.72) 55%)${artBg};flex-shrink:0;">
-      <div class="t-vinyl"></div>
+    const bgStyle = card.albumArt
+      ? `background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.6)),url(${card.albumArt}) center/cover no-repeat`
+      : `background:linear-gradient(180deg,${color}33 0%,rgba(0,0,0,0.8) 100%)`;
+    html += `<div class="t-card ${card.justPlaced ? 'just-placed' : ''}" style="border-top:3px solid ${color};${bgStyle};flex-shrink:0;">
       <div class="t-year" style="color:${color}">${card.year}</div>
       <div class="t-title">${escHtml(card.title)}</div>
       <div class="t-artist">${escHtml(card.artist)}</div>
@@ -1643,8 +1702,15 @@ function renderTimeline(interactive = false) {
   });
 
   const inner = html || `<div style="font-size:11px;color:rgba(255,255,255,0.2);padding:0 4px">—</div>`;
+  const prevScroll = container.scrollLeft;
+  const wasAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 4;
   container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;min-width:max-content;padding:0 8px">${inner}</div>`;
-  container.scrollLeft = container.scrollWidth;
+  // Auto-scroll to end only on first load (empty timeline) or when player was already at the end
+  if (wasAtEnd || prevScroll === 0) {
+    container.scrollLeft = container.scrollWidth;
+  } else {
+    container.scrollLeft = prevScroll;
+  }
 }
 
 function yearToColor(year) {
@@ -1694,10 +1760,18 @@ async function loadRecommendedPlaylists() {
     '37i9dQZF1DX8tZsk88tuRC', // Dance Classics
     '37i9dQZF1DX6GwdWRQMQpq', // Electronic Classics
   ];
-  const results = await Promise.all(
-    ids.map(id => spotifyFetch(`/playlists/${id}?fields=id,name,images,tracks(total)`).catch(() => null))
-  );
-  recommendedPlaylists = results.filter(p => p && p.id);
+  // Fetch in small batches to avoid Spotify rate limiting
+  const BATCH = 3;
+  const all = [];
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const batch = ids.slice(i, i + BATCH);
+    const results = await Promise.all(
+      batch.map(id => spotifyFetch(`/playlists/${id}?fields=id,name,images,tracks(total)`).catch(() => null))
+    );
+    all.push(...results);
+    if (i + BATCH < ids.length) await new Promise(r => setTimeout(r, 200));
+  }
+  recommendedPlaylists = all.filter(p => p && p.id);
 }
 
 // ============================================================
@@ -1740,8 +1814,11 @@ async function acSearch(type, query) {
     : (data.tracks ? data.tracks.items : []);
   if (!items || !items.length) { drop.style.display = 'none'; return; }
   const seen = new Set();
+  const q = query.toLowerCase();
   const deduped = items.filter(item => {
     const key = item.name.toLowerCase();
+    // Only include items whose name actually contains the query string
+    if (!key.includes(q)) return false;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
