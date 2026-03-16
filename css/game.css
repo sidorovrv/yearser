@@ -261,6 +261,15 @@
 
 .album-art.visible { opacity: 0.15; }
 
+#revealed-art {
+  width: clamp(100px, 28vw, 180px);
+  height: clamp(100px, 28vw, 180px);
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+}
+
 /* ===== SONG INFO ===== */
 .song-info-block {
   text-align: center;

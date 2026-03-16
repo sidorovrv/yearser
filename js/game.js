@@ -297,8 +297,11 @@ function confirmPlacement() {
     gameScore++;
     updateScore();
     if (gameMode === 'multiplayer') {
-      const msg = gameScore >= winTarget
-        ? `✓ ${multiTeams[multiTeamIndex].color.name} hits ${winTarget}! 🎉`
+      const tname = multiTeams[multiTeamIndex].color.name;
+      const msg = (multiTieBreaker && gameScore > winTarget)
+        ? `✓ ${tname} — ${gameScore} pts!`
+        : gameScore >= winTarget
+        ? `✓ ${tname} hits ${winTarget}! 🎉`
         : `✓ Correct!`;
       showResult(true, msg);
       document.getElementById('game-controls').innerHTML = '';
@@ -482,6 +485,10 @@ function endGame() {
   const tokenStatsEl = document.getElementById('go-token-stats');
   const lbEl = document.getElementById('go-leaderboard');
   if (lbEl) lbEl.style.display = 'none';
+  document.getElementById('gameover').style.background = '';
+  const goTl = document.getElementById('go-final-timeline');
+  const viewTlBtn = document.getElementById('go-view-timelines-btn');
+  if (viewTlBtn) viewTlBtn.style.display = 'none';
   const survived = gameScore;
   const isPerfect = survived >= winTarget;
 
@@ -501,10 +508,16 @@ function endGame() {
     elimEl.style.display = 'none';
     tokenStatsEl.style.display = 'none';
     document.getElementById('go-playlist').style.display = 'none';
+    if (goTl) {
+      const sorted = [...gameTimeline].sort((a, b) => a.year - b.year);
+      goTl.innerHTML = `<div class="section-label" style="margin-bottom:6px;text-align:center">Final Timeline</div><div class="go-timeline-scroll"><div style="display:flex;align-items:center;min-width:max-content;padding:0 8px">${buildTimelineHtml(sorted)}</div></div>`;
+      goTl.style.display = '';
+    }
     goTo('gameover');
-    triggerWinFlash('#1DB954', '#d4a843');
+    triggerWinCelebration('#1DB954');
     return;
   } else {
+    if (goTl) goTl.style.display = 'none';
     titleEl.textContent = 'ELIMINATED';
     titleEl.style.textShadow = '5px 5px 0 var(--red)';
     scoreEl.textContent = survived;
@@ -543,15 +556,23 @@ function endGame() {
   goTo('gameover');
 }
 
-function triggerWinFlash(c1, c2) {
-  const el = document.getElementById('win-flash');
+function triggerWinCelebration(color) {
+  const el = document.getElementById('win-celebration');
   if (!el) return;
-  const NUM = 8, STAGGER = 65;
-  el.innerHTML = Array.from({ length: NUM }, (_, i) =>
-    `<div class="wf-ring" style="border-color:${i % 2 === 0 ? c1 : c2};animation-delay:${i * STAGGER}ms"></div>`
-  ).join('');
+  el.innerHTML = '';
   el.style.display = '';
-  setTimeout(() => { el.style.display = 'none'; el.innerHTML = ''; }, NUM * STAGGER + 750);
+  const N = 10;
+  for (let i = 0; i < N; i++) {
+    const p = document.createElement('div');
+    p.className = 'wc-particle';
+    const size = (6 + Math.random() * 10).toFixed(1);
+    const x = (4 + Math.random() * 92).toFixed(1);
+    const delay = (Math.random() * 4).toFixed(2);
+    const dur = (3.2 + Math.random() * 2.5).toFixed(2);
+    p.style.cssText = `left:${x}%;bottom:-20px;width:${size}px;height:${size}px;background:${color};animation-delay:${delay}s;animation-duration:${dur}s`;
+    el.appendChild(p);
+  }
+  setTimeout(() => { el.style.display = 'none'; el.innerHTML = ''; }, 12000);
 }
 
 function quitGame() {
@@ -642,13 +663,11 @@ function showMultiHandoff() {
   const { hex, name } = team.color;
 
   document.getElementById('handoff').style.background =
-    `linear-gradient(175deg, ${hex}bb 0%, ${hex}55 45%, var(--black) 82%)`;
+    `linear-gradient(175deg, ${hex}cc 0%, ${hex}66 40%, var(--black) 75%)`;
 
-  document.getElementById('handoff-dot').style.background = hex;
-  document.getElementById('handoff-dot').style.boxShadow = `0 0 40px ${hex}99, 0 0 80px ${hex}44`;
+  const stripe = document.getElementById('handoff-stripe');
+  if (stripe) stripe.style.background = hex;
   document.getElementById('handoff-team-name').textContent = name;
-  document.getElementById('handoff-team-name').style.color = hex;
-  document.getElementById('handoff-team-name').style.textShadow = `4px 4px 0 ${hex}44`;
 
   // Tie-breaker indicator
   const tbEl = document.getElementById('handoff-tiebreaker');
@@ -764,6 +783,12 @@ function endMultiGame(winningTeam) {
   document.getElementById('go-eliminated-card').style.display = 'none';
   document.getElementById('go-playlist').style.display = 'none';
   document.getElementById('go-token-stats').style.display = 'none';
+  const goTlM = document.getElementById('go-final-timeline');
+  if (goTlM) goTlM.style.display = 'none';
+  const viewTlBtnM = document.getElementById('go-view-timelines-btn');
+  if (viewTlBtnM) viewTlBtnM.style.display = '';
+  document.getElementById('gameover').style.background =
+    `radial-gradient(ellipse at 50% 30%, ${winningTeam.color.hex}44 0%, ${winningTeam.color.hex}14 55%, var(--black) 78%)`;
 
   // Leaderboard
   const sorted = [...multiTeams].sort((a, b) => b.score - a.score);
@@ -788,5 +813,27 @@ function endMultiGame(winningTeam) {
   if (scoreEl) scoreEl.style.color = '';
 
   goTo('gameover');
-  triggerWinFlash(winningTeam.color.hex, '#d4a843');
+  triggerWinCelebration(winningTeam.color.hex);
+}
+
+// ============================================================
+//  MULTIPLAYER — VIEW TIMELINES
+// ============================================================
+function showTimelinesModal() {
+  const sorted = [...multiTeams].sort((a, b) => b.score - a.score);
+  const bodyEl = document.getElementById('tmod-body');
+  if (!bodyEl) return;
+  bodyEl.innerHTML = sorted.map(team => {
+    const tl = [...team.timeline].sort((a, b) => a.year - b.year);
+    return `<div class="tmod-team">
+      <div class="tmod-team-header" style="border-left-color:${team.color.hex}">
+        <span class="tmod-team-name" style="color:${team.color.hex}">${escHtml(team.color.name)}</span>
+        <span class="tmod-team-score">${team.score} pts</span>
+      </div>
+      <div class="tmod-timeline">
+        <div style="display:flex;align-items:center;min-width:max-content;padding:0 8px">${buildTimelineHtml(tl)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('timelines-modal').style.display = '';
 }

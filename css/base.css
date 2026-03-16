@@ -160,28 +160,17 @@ input[type="number"]:focus { border-color: var(--teal); }
 .error-box { background: #2d0d0a; border: 1px solid rgba(230,51,41,0.3); padding: 14px 18px; font-size: 12px; color: #ff9b97; margin-top: 12px; }
 .pl-section-label { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 10px; grid-column: 1 / -1; padding-top: 4px; }
 
-/* ===== WIN FLASH OVERLAY ===== */
-#win-flash {
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.wf-ring {
+/* ===== WIN CELEBRATION PARTICLES ===== */
+.wc-particle {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 80px;
-  height: 80px;
-  box-sizing: content-box;
-  border: 5px solid transparent;
-  animation: wf-ring-out 0.62s cubic-bezier(0.15, 0, 0.25, 1) both;
+  pointer-events: none;
+  opacity: 0;
+  animation: wcFloat linear forwards;
 }
 
-@keyframes wf-ring-out {
-  0%   { transform: translate(-50%, -50%) scale(0.05); opacity: 1; }
-  70%  { opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(36);   opacity: 0; }
+@keyframes wcFloat {
+  0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 0; }
+  8%   { opacity: 0.5; }
+  80%  { opacity: 0.2; }
+  100% { transform: translateY(-105vh) rotate(210deg) scale(0.6); opacity: 0; }
 }

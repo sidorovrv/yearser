@@ -175,3 +175,17 @@ function yearToColor(year) {
   const hue = Math.round(30 + pct * 150); // orange(30) → teal(180)
   return `hsl(${hue}, 75%, 58%)`;
 }
+
+function buildTimelineHtml(sorted) {
+  return sorted.map(card => {
+    const color = yearToColor(card.year);
+    const bgStyle = card.albumArt
+      ? `background:linear-gradient(rgba(0,0,0,0.65),rgba(0,0,0,0.82)),url(${card.albumArt}) center/cover no-repeat`
+      : `background:linear-gradient(180deg,${color}33 0%,rgba(0,0,0,0.8) 100%)`;
+    return `<div class="t-card" style="border-top:3px solid ${color};${bgStyle};flex-shrink:0;">
+      <div class="t-year" style="color:${color}">${card.year}</div>
+      <div class="t-title">${escHtml(card.title)}</div>
+      <div class="t-artist">${escHtml(card.artist)}</div>
+    </div>`;
+  }).join('');
+}

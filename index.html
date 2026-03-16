@@ -109,7 +109,7 @@
       </div>
 
       <div class="song-info-block">
-        <img id="revealed-art" src="" alt="" style="display:none;width:88px;height:88px;object-fit:cover;border-radius:4px;margin-bottom:10px;box-shadow:4px 4px 0 rgba(0,0,0,0.5)">
+        <img id="revealed-art" src="" alt="" style="display:none">
         <div class="song-title-big" id="g-title">—</div>
         <div class="song-artist-sm" id="g-artist"></div>
         <div class="song-year-big hidden" id="g-year"></div>
@@ -135,11 +135,13 @@
 
 <!-- ===== HANDOFF ===== -->
 <div id="handoff" class="screen handoff-screen">
-  <div class="handoff-body">
-    <div class="handoff-dot" id="handoff-dot"></div>
+  <div class="handoff-hero">
+    <div class="handoff-eyebrow">Your Turn</div>
     <div class="handoff-team-name" id="handoff-team-name">Team</div>
-    <div class="handoff-label">Your Turn</div>
     <div id="handoff-tiebreaker" class="handoff-tiebreaker" style="display:none">⚡ Tie-Breaker</div>
+  </div>
+  <div class="handoff-stripe" id="handoff-stripe"></div>
+  <div class="handoff-body">
     <div class="handoff-instruction">Pass the phone to this team —<br>tap Ready when you're set to play</div>
     <div class="handoff-scores" id="handoff-scores"></div>
     <button class="btn btn-primary handoff-ready-btn" onclick="startHandoffTurn()">I'm Ready — Let's Play →</button>
@@ -155,15 +157,29 @@
   <div id="go-playlist" style="display:none;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal);margin-top:-6px"></div>
   <div id="go-token-stats" style="display:none;font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;margin-top:4px"></div>
   <div id="go-leaderboard" class="go-leaderboard" style="display:none"></div>
+  <div id="go-final-timeline" class="go-final-timeline" style="display:none"></div>
   <div id="go-eliminated-card" style="display:none;text-align:center;margin-top:12px;max-width:320px"></div>
   <div class="go-actions">
     <button class="btn btn-primary" onclick="startGame()">▶ Play Again</button>
+    <button id="go-view-timelines-btn" class="btn btn-secondary" onclick="showTimelinesModal()" style="display:none">View Timelines</button>
     <button class="btn btn-secondary" onclick="stopPlayback();goTo('picker')">Change Playlist</button>
   </div>
 </div>
 
-</body>
-</html>
+<!-- ===== TIMELINES MODAL ===== -->
+<div id="timelines-modal" class="timelines-modal" style="display:none">
+  <div class="tmod-header">
+    <div class="tmod-title">All Timelines</div>
+    <button class="tmod-close" onclick="document.getElementById('timelines-modal').style.display='none'">✕</button>
+  </div>
+  <div class="tmod-body" id="tmod-body"></div>
+</div>
+
+<!-- WIN CELEBRATION OVERLAY -->
+<div id="win-celebration" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:9998;overflow:hidden"></div>
+
+<script defer src="js/config.js"></script>
+<script defer src="js/state.js"></script>
 <script defer src="js/auth.js"></script>
 <script defer src="js/app.js"></script>
 <script defer src="js/playlist.js"></script>
@@ -172,8 +188,5 @@
 <script defer src="js/ui.js"></script>
 <script defer src="js/game.js"></script>
 <script defer src="js/autocomplete.js"></script>
-<!-- ===== WIN FLASH OVERLAY ===== -->
-<div id="win-flash" style="display:none"></div>
-
-<script defer src="js/config.js"></script>
-<script defer src="js/state.js"></script>
+</body>
+</html>
