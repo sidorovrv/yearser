@@ -213,6 +213,53 @@
 
 @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
 
+/* ===== MULTIPLAYER LEADERBOARD (gameover) ===== */
+.go-leaderboard {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.go-lb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid rgba(255,255,255,0.07);
+  border-left: 3px solid var(--team-color, rgba(255,255,255,0.1));
+  animation: fadeDown 0.4s ease both;
+}
+
+.go-lb-row.go-lb-winner {
+  border-color: var(--team-color, rgba(255,255,255,0.3));
+}
+
+.go-lb-rank {
+  font-size: 15px;
+  min-width: 26px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.go-lb-team {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  flex: 1;
+  text-align: left;
+}
+
+.go-lb-score {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
 /* ===== LOADING ===== */
 #loading {
   align-items: center; justify-content: center;
@@ -233,64 +280,100 @@
 
 /* ===== HANDOFF ===== */
 .handoff-screen {
-  align-items: center;
-  justify-content: center;
-  background: var(--black);
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 .handoff-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 40px 32px;
-  width: 100%;
-  max-width: 420px;
+  gap: 14px;
+  padding: 52px 32px 36px;
   text-align: center;
+  overflow-y: auto;
 }
 
 .handoff-dot {
-  width: 88px;
-  height: 88px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .handoff-team-name {
   font-family: 'Bebas Neue', cursive;
-  font-size: clamp(52px, 16vw, 96px);
+  font-size: clamp(56px, 18vw, 100px);
   letter-spacing: 0.06em;
   line-height: 1;
 }
 
 .handoff-label {
-  font-size: 11px;
-  letter-spacing: 0.4em;
+  font-size: 10px;
+  letter-spacing: 0.45em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.4);
-  margin-top: -8px;
+  color: rgba(255,255,255,0.35);
+  margin-top: -6px;
 }
 
 .handoff-instruction {
-  font-size: 13px;
+  font-size: 14px;
   color: rgba(255,255,255,0.55);
-  letter-spacing: 0.06em;
-  line-height: 1.7;
+  letter-spacing: 0.04em;
+  line-height: 1.75;
 }
 
+/* Score chips on handoff screen */
 .handoff-scores {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.3);
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
+  gap: 8px;
   justify-content: center;
-  padding: 0 8px;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.hsc-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  min-width: 62px;
+}
+
+.hsc-chip.hsc-active {
+  background: var(--hsc-bg, rgba(255,255,255,0.08));
+  border-color: var(--hsc-color, rgba(255,255,255,0.3));
+}
+
+.hsc-name {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+
+.hsc-chip.hsc-active .hsc-name {
+  color: var(--hsc-color, rgba(255,255,255,0.6));
+}
+
+.hsc-num {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--cream);
+}
+
+.hsc-chip.hsc-active .hsc-num {
+  color: var(--hsc-color, var(--gold));
 }
 
 .handoff-ready-btn {
-  margin-top: 12px;
-  min-width: 200px;
+  margin-top: auto;
+  width: 100%;
+  max-width: 340px;
 }

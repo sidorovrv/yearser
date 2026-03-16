@@ -58,7 +58,7 @@
       </div>
       <div class="num-input-wrap">
         <label>Win at</label>
-        <input type="number" id="num-win" value="20" min="5" max="50">
+        <input type="number" id="num-win" value="10" min="5" max="50">
       </div>
       <div class="num-input-wrap" id="num-teams-wrap" style="display:none">
         <label>Teams</label>
@@ -81,6 +81,9 @@
       <span class="hdr-pill hdr-score">★ <span id="g-score">0</span></span>
     </div>
   </div>
+
+  <!-- Multiplayer scores bar -->
+  <div id="multi-scores-bar" class="multi-scores-bar" style="display:none"></div>
 
   <div class="game-body">
     <!-- Timeline -->
@@ -136,9 +139,9 @@
     <div class="handoff-dot" id="handoff-dot"></div>
     <div class="handoff-team-name" id="handoff-team-name">Team</div>
     <div class="handoff-label">Your Turn</div>
-    <div class="handoff-instruction">Pass the phone to this team,<br>then tap ready to begin</div>
+    <div class="handoff-instruction">Pass the phone to this team —<br>tap Ready when you're set to play</div>
     <div class="handoff-scores" id="handoff-scores"></div>
-    <button class="btn btn-primary handoff-ready-btn" onclick="startHandoffTurn()">I'm Ready →</button>
+    <button class="btn btn-primary handoff-ready-btn" onclick="startHandoffTurn()">I'm Ready — Let's Play →</button>
   </div>
 </div>
 
@@ -150,6 +153,7 @@
   <div class="go-context" id="go-context"></div>
   <div id="go-playlist" style="display:none;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal);margin-top:-6px"></div>
   <div id="go-token-stats" style="display:none;font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:0.08em;margin-top:4px"></div>
+  <div id="go-leaderboard" class="go-leaderboard" style="display:none"></div>
   <div id="go-eliminated-card" style="display:none;text-align:center;margin-top:12px;max-width:320px"></div>
   <div class="go-actions">
     <button class="btn btn-primary" onclick="startGame()">▶ Play Again</button>

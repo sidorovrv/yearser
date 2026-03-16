@@ -70,7 +70,7 @@ async function startGame() {
     ? Math.max(2, parseInt(document.getElementById('num-teams').value) || 2)
     : 1;
 
-  winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 20, 50);
+  winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 10, 50);
   const poolSize = gameMode === 'multiplayer'
     ? 2 * winTarget * numTeams                                  // auto pool for multiplayer
     : Math.min(parseInt(document.getElementById('num-pool').value) || 50, 500);
@@ -298,11 +298,16 @@ function confirmPlacement() {
     updateScore();
     if (gameMode === 'multiplayer') {
       const msg = gameScore >= winTarget
-        ? `✓ Correct! ${multiTeams[multiTeamIndex].color.name} reaches ${winTarget}!`
+        ? `✓ ${multiTeams[multiTeamIndex].color.name} hits ${winTarget}! 🎉`
         : `✓ Correct!`;
       showResult(true, msg);
-      setControls('next');
+      document.getElementById('game-controls').innerHTML = '';
       renderTimeline(false);
+      setTimeout(async () => {
+        gameTimeline.forEach(c => delete c.justPlaced);
+        gameIndex++;
+        await advanceMultiTurn();
+      }, 1500);
     } else if (gameScore >= winTarget) {
       showResult(true, `✓ Perfect Run!${guessFeedback}`);
       renderTimeline(false);
@@ -316,8 +321,13 @@ function confirmPlacement() {
     lastCard = {...card, guessedAfter: prev ? prev.year : null, guessedBefore: next ? next.year : null};
     if (gameMode === 'multiplayer') {
       showResult(false, `✗ Wrong!`);
-      setControls('next');
+      document.getElementById('game-controls').innerHTML = '';
       renderTimeline(false);
+      setTimeout(async () => {
+        gameTimeline.forEach(c => delete c.justPlaced);
+        gameIndex++;
+        await advanceMultiTurn();
+      }, 1500);
     } else if (gameMode === 'hardcore') {
       showResult(false, `✗ Wrong! Eliminated${guessFeedback}`);
       document.getElementById('game-controls').innerHTML = '';
@@ -470,6 +480,8 @@ function endGame() {
   const ctxEl = document.getElementById('go-context');
   const elimEl = document.getElementById('go-eliminated-card');
   const tokenStatsEl = document.getElementById('go-token-stats');
+  const lbEl = document.getElementById('go-leaderboard');
+  if (lbEl) lbEl.style.display = 'none';
   const survived = gameScore;
   const isPerfect = survived >= winTarget;
 
@@ -614,17 +626,27 @@ function showMultiHandoff() {
   const team = multiTeams[multiTeamIndex];
   const { hex, name } = team.color;
 
+  // Full-screen colour splash
+  document.getElementById('handoff').style.background =
+    `radial-gradient(ellipse at 50% 0%, ${hex}55 0%, ${hex}18 35%, var(--black) 65%)`;
+
   document.getElementById('handoff-dot').style.background = hex;
-  document.getElementById('handoff-dot').style.boxShadow = `0 0 48px ${hex}88, 0 0 96px ${hex}44`;
+  document.getElementById('handoff-dot').style.boxShadow = `0 0 40px ${hex}99, 0 0 80px ${hex}44`;
   document.getElementById('handoff-team-name').textContent = name;
   document.getElementById('handoff-team-name').style.color = hex;
-  document.getElementById('handoff-team-name').style.textShadow = `4px 4px 0 ${hex}55`;
+  document.getElementById('handoff-team-name').style.textShadow = `4px 4px 0 ${hex}44`;
 
-  // Show all team scores
+  // Score chips — all teams
   const scoresHtml = multiTeams.map((t, i) => {
     const active = i === multiTeamIndex;
-    return `<span style="color:${active ? t.color.hex : 'rgba(255,255,255,0.3)'};${active ? 'font-weight:600' : ''}">${escHtml(t.color.name)}: ${t.score}</span>`;
-  }).join(' &nbsp;·&nbsp; ');
+    const chipStyle = active
+      ? `style="--hsc-color:${t.color.hex};border-color:${t.color.hex};background:${t.color.hex}22"`
+      : '';
+    return `<div class="hsc-chip${active ? ' hsc-active' : ''}" ${chipStyle}>
+      <span class="hsc-name">${escHtml(t.color.name)}</span>
+      <span class="hsc-num">${t.score}</span>
+    </div>`;
+  }).join('');
   document.getElementById('handoff-scores').innerHTML = scoresHtml;
 
   goTo('handoff');
@@ -648,6 +670,13 @@ async function startHandoffTurn() {
   if (tlSection) tlSection.style.display = '';
   if (divider)   divider.style.display   = '';
   document.getElementById('token-wrap').style.display = 'none';
+
+  // Clear the timeline DOM immediately to prevent flashing previous team's cards
+  const tlContainer = document.getElementById('timeline');
+  if (tlContainer) tlContainer.innerHTML = '';
+  document.getElementById('game-controls').innerHTML = '';
+  const banner = document.getElementById('result-banner');
+  if (banner) banner.className = 'result-banner';
 
   updateScore();
   goTo('game');
@@ -710,17 +739,26 @@ function endMultiGame(winningTeam) {
   titleEl.style.color = '';
 
   document.getElementById('go-score').textContent = winningTeam.score;
-  document.getElementById('go-context').textContent = `First to ${winTarget} correct placements!`;
+  document.getElementById('go-context').textContent = `First to ${winTarget} correct placements wins!`;
   document.getElementById('go-eliminated-card').style.display = 'none';
   document.getElementById('go-playlist').style.display = 'none';
+  document.getElementById('go-token-stats').style.display = 'none';
 
-  // Show all team scores
+  // Leaderboard
   const sorted = [...multiTeams].sort((a, b) => b.score - a.score);
-  const statsEl = document.getElementById('go-token-stats');
-  statsEl.innerHTML = sorted.map((t, i) =>
-    `<span style="color:${t.color.hex}">${i === 0 ? '🏆 ' : ''}${escHtml(t.color.name)}: ${t.score}</span>`
-  ).join(' &nbsp;·&nbsp; ');
-  statsEl.style.display = '';
+  const lbEl = document.getElementById('go-leaderboard');
+  if (lbEl) {
+    lbEl.innerHTML = sorted.map((t, i) => {
+      const delay = `animation-delay:${i * 0.07}s`;
+      const winner = i === 0;
+      return `<div class="go-lb-row${winner ? ' go-lb-winner' : ''}" style="--team-color:${t.color.hex}${winner ? `;background:${t.color.hex}18` : ''};${delay}">
+        <span class="go-lb-rank">${winner ? '🏆' : (i + 1) + '.'}</span>
+        <span class="go-lb-team" style="color:${t.color.hex}">${escHtml(t.color.name)}</span>
+        <span class="go-lb-score">${t.score}</span>
+      </div>`;
+    }).join('');
+    lbEl.style.display = '';
+  }
 
   // Reset game header styling
   const header = document.querySelector('.game-header');

@@ -11,8 +11,23 @@ function showResult(ok, msg) {
   el.className = 'result-banner ' + (ok ? 'correct' : 'wrong');
 }
 
-function updateScore() { document.getElementById('g-score').textContent = gameScore; updateTokenDisplay(); }
+function updateScore() { document.getElementById('g-score').textContent = gameScore; updateTokenDisplay(); updateMultiScoresBar(); }
 function getSorted() { return [...gameTimeline].sort((a, b) => a.year - b.year); }
+
+function updateMultiScoresBar() {
+  const bar = document.getElementById('multi-scores-bar');
+  if (!bar) return;
+  if (gameMode !== 'multiplayer' || !multiTeams.length) { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  bar.innerHTML = multiTeams.map((t, i) => {
+    const active = i === multiTeamIndex;
+    return `<span class="msb-chip${active ? ' msb-active' : ''}" style="--team-color:${t.color.hex}">
+      <span class="msb-dot"></span>
+      <span class="msb-name">${escHtml(t.color.name)}</span>
+      <span class="msb-score">${t.score}</span>
+    </span>`;
+  }).join('');
+}
 
 function updateTokenDisplay() {
   const wrap = document.getElementById('token-wrap');
@@ -137,12 +152,22 @@ function renderTimeline(interactive = false) {
 
   const inner = html || `<div style="font-size:11px;color:rgba(255,255,255,0.2);padding:0 4px">—</div>`;
   const prevScroll = container.scrollLeft;
+  const showingGhost = interactive && pendingPlacementIndex !== null;
   container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;min-width:max-content;padding:0 8px">${inner}</div>`;
-  if (prevScroll === 0) {
-    container.scrollLeft = container.scrollWidth;
-  } else {
-    container.scrollLeft = prevScroll;
-  }
+  requestAnimationFrame(() => {
+    if (showingGhost) {
+      const ghost = container.querySelector('.t-card-ghost');
+      if (ghost) {
+        ghost.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' });
+      } else {
+        container.scrollLeft = prevScroll;
+      }
+    } else if (prevScroll === 0) {
+      container.scrollLeft = container.scrollWidth;
+    } else {
+      container.scrollLeft = prevScroll;
+    }
+  });
 }
 
 function yearToColor(year) {
