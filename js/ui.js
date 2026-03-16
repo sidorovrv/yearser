@@ -48,28 +48,33 @@ function setControls(mode, card) {
   } else if (mode === 'next') {
     el.innerHTML = `<div class="controls-row"><button class="btn btn-primary btn-wide" onclick="nextCard()">Next Song →</button></div>`;
   } else if (mode === 'four-options' && card) {
-    // Build 4 year options: correct + 3 wrong from the pool
-    const correctYear = card.year;
-    const otherYears = gameCards
-      .filter((c, i) => i !== gameIndex && c.year !== correctYear)
-      .map(c => c.year);
-    // Shuffle and pick 3 unique wrong years
-    for (let i = otherYears.length - 1; i > 0; i--) {
+    // Build 4 artist/title options: correct + 3 wrong from the pool
+    const otherCards = gameCards
+      .filter((c, i) => i !== gameIndex && c.title.toLowerCase() !== card.title.toLowerCase());
+    // Shuffle
+    for (let i = otherCards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [otherYears[i], otherYears[j]] = [otherYears[j], otherYears[i]];
+      [otherCards[i], otherCards[j]] = [otherCards[j], otherCards[i]];
     }
-    const wrongYears = [...new Set(otherYears)].slice(0, 3);
-    // Pad with random years if not enough distinct options
-    while (wrongYears.length < 3) {
-      const y = 1960 + Math.floor(Math.random() * 60);
-      if (y !== correctYear && !wrongYears.includes(y)) wrongYears.push(y);
+    // Pick up to 3 unique wrong options (unique by title)
+    const seenTitles = new Set([card.title.toLowerCase()]);
+    const wrongOptions = [];
+    for (const c of otherCards) {
+      if (wrongOptions.length >= 3) break;
+      if (!seenTitles.has(c.title.toLowerCase())) {
+        seenTitles.add(c.title.toLowerCase());
+        wrongOptions.push({ artist: c.artist, title: c.title });
+      }
     }
-    const options = [correctYear, ...wrongYears].sort(() => Math.random() - 0.5);
+    const allOptions = [
+      { artist: card.artist, title: card.title, correct: true },
+      ...wrongOptions.map(o => ({ ...o, correct: false }))
+    ].sort(() => Math.random() - 0.5);
     el.innerHTML = `
       <div style="width:100%;max-width:340px">
-        <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:10px;text-align:center">Which year was this released?</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          ${options.map(y => `<button class="btn btn-secondary" style="font-family:'Bebas Neue',cursive;font-size:22px;padding:14px 0;" onclick="confirmFourOptions(${y})">${y}</button>`).join('')}
+        <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:10px;text-align:center">Which song is playing?</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${allOptions.map(o => `<button class="btn btn-secondary" style="text-align:left;padding:10px 14px;width:100%;" onclick="confirmFourOptions(${o.correct})"><span style="display:block;font-size:12px;color:var(--cream);letter-spacing:0.05em">${escHtml(o.title)}</span><span style="display:block;font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;letter-spacing:0.05em">${escHtml(o.artist)}</span></button>`).join('')}
         </div>
       </div>`;
   } else if (mode === 'name-guess') {
@@ -132,9 +137,8 @@ function renderTimeline(interactive = false) {
 
   const inner = html || `<div style="font-size:11px;color:rgba(255,255,255,0.2);padding:0 4px">—</div>`;
   const prevScroll = container.scrollLeft;
-  const wasAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 4;
   container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;min-width:max-content;padding:0 8px">${inner}</div>`;
-  if (wasAtEnd || prevScroll === 0) {
+  if (prevScroll === 0) {
     container.scrollLeft = container.scrollWidth;
   } else {
     container.scrollLeft = prevScroll;

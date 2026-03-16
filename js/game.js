@@ -17,10 +17,10 @@ function setMode(m) {
   document.getElementById('mode-four-options').classList.toggle('active', m === 'four-options');
   document.getElementById('mode-name-guess').classList.toggle('active', m === 'name-guess');
   const labels = {
-    'standard': '♟ Play Standard',
-    'hardcore': '☠ Play Hardcore',
-    'four-options': '🎲 Play 4 Options',
-    'name-guess': '🎤 Play Name Guess'
+    'standard': '▶ Play Standard',
+    'hardcore': '▶ Play Hardcore',
+    'four-options': '▶ Play 4 Options',
+    'name-guess': '▶ Play Name Guess'
   };
   document.getElementById('start-btn').textContent = labels[m] || '▶ Play';
 }
@@ -294,9 +294,9 @@ async function nextCard() {
 // ============================================================
 //  FOUR-OPTIONS MODE
 // ============================================================
-function confirmFourOptions(chosenYear) {
+function confirmFourOptions(isCorrect) {
   const card = gameCards[gameIndex];
-  const correct = chosenYear === card.year;
+  const correct = isCorrect === true;
 
   // Reveal info
   const titleEl = document.getElementById('g-title');
@@ -324,16 +324,16 @@ function confirmFourOptions(chosenYear) {
       renderTimeline(false);
     }
   } else {
-    lastCard = {...card, guessedYear: chosenYear};
+    lastCard = {...card};
     tokens--;
     updateTokenDisplay();
     if (tokens <= 0) {
-      showResult(false, `✗ Wrong! It was ${card.year}. No lives left.`);
+      showResult(false, `✗ Wrong — no lives left!`);
       document.getElementById('game-controls').innerHTML = '';
       renderTimeline(false);
       setTimeout(() => endGame(), 1800);
     } else {
-      showResult(false, `✗ Wrong! It was ${card.year}. ${tokens} life${tokens !== 1 ? 's' : ''} left.`);
+      showResult(false, `✗ Wrong! ${tokens} life${tokens !== 1 ? 's' : ''} left.`);
       setControls('next');
       renderTimeline(false);
     }

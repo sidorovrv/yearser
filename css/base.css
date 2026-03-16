@@ -141,7 +141,7 @@ input[type="number"]:focus { border-color: var(--teal); }
   fill: var(--black);
 }
 
-.mode-btn { padding: 8px 22px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; border: 1.5px solid rgba(255,255,255,0.15); background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.15s; }
+.mode-btn { display: inline-flex; align-items: center; height: 34px; padding: 0 22px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; border: 1.5px solid rgba(255,255,255,0.15); background: transparent; color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
 .mode-btn:hover { border-color: rgba(255,255,255,0.4); color: var(--cream); }
 .mode-btn.active { border-color: var(--teal); color: var(--teal); background: rgba(29,185,84,0.1); }
 .mode-btn.active-red { border-color: var(--red); color: var(--red); background: rgba(230,51,41,0.1); }
