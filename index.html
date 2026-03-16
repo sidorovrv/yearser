@@ -49,15 +49,20 @@
       <button class="mode-btn" id="mode-hardcore" onclick="setMode('hardcore')">Hardcore</button>
       <button class="mode-btn" id="mode-four-options" onclick="setMode('four-options')">4 Options</button>
       <button class="mode-btn" id="mode-name-guess" onclick="setMode('name-guess')">Name Guess</button>
+      <button class="mode-btn" id="mode-multiplayer" onclick="setMode('multiplayer')">Multiplayer</button>
     </div>
     <div style="display:flex;gap:10px;align-items:flex-end">
-      <div class="num-input-wrap">
+      <div class="num-input-wrap" id="num-pool-wrap">
         <label>Pool</label>
         <input type="number" id="num-pool" value="50" min="10" max="100">
       </div>
       <div class="num-input-wrap">
         <label>Win at</label>
         <input type="number" id="num-win" value="20" min="5" max="50">
+      </div>
+      <div class="num-input-wrap" id="num-teams-wrap" style="display:none">
+        <label>Teams</label>
+        <input type="number" id="num-teams" value="2" min="2" max="12">
       </div>
       <button class="btn btn-ghost" onclick="logout()" style="margin-left:auto;padding:10px 14px">Log out</button>
     </div>
@@ -123,6 +128,18 @@
   <div class="result-banner" id="result-banner"></div>
 
   <div class="game-controls" id="game-controls"></div>
+</div>
+
+<!-- ===== HANDOFF ===== -->
+<div id="handoff" class="screen handoff-screen">
+  <div class="handoff-body">
+    <div class="handoff-dot" id="handoff-dot"></div>
+    <div class="handoff-team-name" id="handoff-team-name">Team</div>
+    <div class="handoff-label">Your Turn</div>
+    <div class="handoff-instruction">Pass the phone to this team,<br>then tap ready to begin</div>
+    <div class="handoff-scores" id="handoff-scores"></div>
+    <button class="btn btn-primary handoff-ready-btn" onclick="startHandoffTurn()">I'm Ready →</button>
+  </div>
 </div>
 
 <!-- ===== GAME OVER ===== -->

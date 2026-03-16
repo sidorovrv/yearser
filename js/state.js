@@ -35,6 +35,11 @@ let pendingArtistGuess = null;
 let pendingTitleGuess = null;
 let acTimers = {};
 
+// Multiplayer state
+let multiTeams = [];
+let multiTeamIndex = 0;
+let multiRoundTeamCount = 0;
+
 // Platform detection (iOS Safari cannot use Web Playback SDK)
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

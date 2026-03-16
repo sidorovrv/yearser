@@ -1,4 +1,25 @@
 // ============================================================
+//  TEAM COLORS FOR MULTIPLAYER
+// ============================================================
+const MULTI_COLORS = [
+  { hex: '#e63329', name: 'Red'    },
+  { hex: '#4a9eff', name: 'Blue'   },
+  { hex: '#2db84b', name: 'Green'  },
+  { hex: '#ff8c00', name: 'Orange' },
+  { hex: '#a855f7', name: 'Purple' },
+  { hex: '#f0c040', name: 'Yellow' },
+  { hex: '#ff69b4', name: 'Pink'   },
+  { hex: '#00bcd4', name: 'Cyan'   },
+  { hex: '#ff6b6b', name: 'Coral'  },
+  { hex: '#8bc34a', name: 'Lime'   },
+  { hex: '#ff5722', name: 'Ember'  },
+  { hex: '#9c27b0', name: 'Violet' },
+];
+
+// Fetch 2× the pool size so there's a good random sample without loading the whole playlist
+const TRACK_FETCH_MULTIPLIER = 2;
+
+// ============================================================
 //  SKIP UNAVAILABLE TRACK (called from playback.js)
 // ============================================================
 function skipUnavailableTrack() {
@@ -16,13 +37,21 @@ function setMode(m) {
   document.getElementById('mode-hardcore').classList.toggle('active', m === 'hardcore');
   document.getElementById('mode-four-options').classList.toggle('active', m === 'four-options');
   document.getElementById('mode-name-guess').classList.toggle('active', m === 'name-guess');
+  document.getElementById('mode-multiplayer').classList.toggle('active', m === 'multiplayer');
   const labels = {
-    'standard': '▶ Play Standard',
-    'hardcore': '▶ Play Hardcore',
+    'standard':     '▶ Play Standard',
+    'hardcore':     '▶ Play Hardcore',
     'four-options': '▶ Play 4 Options',
-    'name-guess': '▶ Play Name Guess'
+    'name-guess':   '▶ Play Name Guess',
+    'multiplayer':  '▶ Play Multiplayer',
   };
   document.getElementById('start-btn').textContent = labels[m] || '▶ Play';
+  // Show teams input only for multiplayer mode
+  const teamsWrap = document.getElementById('num-teams-wrap');
+  if (teamsWrap) teamsWrap.style.display = m === 'multiplayer' ? '' : 'none';
+  // Hide pool input for multiplayer (pool is auto-calculated)
+  const poolWrap = document.getElementById('num-pool-wrap');
+  if (poolWrap) poolWrap.style.display = m === 'multiplayer' ? 'none' : '';
 }
 
 // ============================================================
@@ -37,9 +66,19 @@ async function startGame() {
   document.getElementById('loading-error').style.display = 'none';
   document.getElementById('loading-text').textContent = 'Loading tracks…';
 
-  // Fetch all tracks from playlist (or Liked Songs)
+  const numTeams = gameMode === 'multiplayer'
+    ? Math.max(2, parseInt(document.getElementById('num-teams').value) || 2)
+    : 1;
+
+  winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 20, 50);
+  const poolSize = gameMode === 'multiplayer'
+    ? 2 * winTarget * numTeams                                  // auto pool for multiplayer
+    : Math.min(parseInt(document.getElementById('num-pool').value) || 50, 500);
+
+  // Fetch tracks from playlist (or Liked Songs) with early stopping
   const isLikedPlaylist = selectedPlaylistId === '__liked__';
   let tracks = [];
+  const targetTracks = poolSize * TRACK_FETCH_MULTIPLIER; // fetch at most 2× the pool for a good random sample
   let url = isLikedPlaylist
     ? '/me/tracks?limit=50&fields=next,items(track(id,name,uri,external_ids,album(release_date,images),artists(name)))'
     : `/playlists/${selectedPlaylistId}/tracks?limit=100&fields=next,items(track(id,name,uri,external_ids,album(release_date,images),artists(name)))`;
@@ -62,6 +101,7 @@ async function startGame() {
       })
       .filter(t => t.year >= 1900 && t.year <= 2025);
     tracks = tracks.concat(valid);
+    if (tracks.length >= targetTracks) break; // early stop — enough tracks collected
     url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
   }
 
@@ -76,9 +116,15 @@ async function startGame() {
     const j = Math.floor(Math.random() * (i + 1));
     [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
   }
-  const poolSize = Math.min(parseInt(document.getElementById('num-pool').value) || 50, tracks.length);
-  winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 20, poolSize - 1);
-  gameCards = tracks.slice(0, poolSize);
+
+  if (gameMode === 'multiplayer') {
+    await startMultiplayer(tracks, numTeams);
+    return;
+  }
+
+  const actualPool = Math.min(poolSize, tracks.length);
+  winTarget = Math.min(winTarget, actualPool - 1);
+  gameCards = tracks.slice(0, actualPool);
 
   gameIndex = 0;
   gameScore = 0;
@@ -250,7 +296,14 @@ function confirmPlacement() {
     gameTimeline.push({...card, justPlaced: true});
     gameScore++;
     updateScore();
-    if (gameScore >= winTarget) {
+    if (gameMode === 'multiplayer') {
+      const msg = gameScore >= winTarget
+        ? `✓ Correct! ${multiTeams[multiTeamIndex].color.name} reaches ${winTarget}!`
+        : `✓ Correct!`;
+      showResult(true, msg);
+      setControls('next');
+      renderTimeline(false);
+    } else if (gameScore >= winTarget) {
       showResult(true, `✓ Perfect Run!${guessFeedback}`);
       renderTimeline(false);
       setTimeout(() => endGame(), 1500);
@@ -261,7 +314,11 @@ function confirmPlacement() {
     }
   } else {
     lastCard = {...card, guessedAfter: prev ? prev.year : null, guessedBefore: next ? next.year : null};
-    if (gameMode === 'hardcore') {
+    if (gameMode === 'multiplayer') {
+      showResult(false, `✗ Wrong!`);
+      setControls('next');
+      renderTimeline(false);
+    } else if (gameMode === 'hardcore') {
       showResult(false, `✗ Wrong! Eliminated${guessFeedback}`);
       document.getElementById('game-controls').innerHTML = '';
       renderTimeline(false);
@@ -288,6 +345,10 @@ async function nextCard() {
   // Clear justPlaced flags
   gameTimeline.forEach(c => delete c.justPlaced);
   gameIndex++;
+  if (gameMode === 'multiplayer') {
+    await advanceMultiTurn();
+    return;
+  }
   await loadCard();
 }
 
@@ -416,7 +477,8 @@ function endGame() {
     gameMode === 'standard'    ? 'Standard Mode' :
     gameMode === 'hardcore'    ? 'Hardcore Mode' :
     gameMode === 'four-options'? '4 Options Mode' :
-    gameMode === 'name-guess'  ? 'Name Guess Mode' : '';
+    gameMode === 'name-guess'  ? 'Name Guess Mode' :
+    gameMode === 'multiplayer' ? 'Multiplayer Mode' : '';
 
   if (isPerfect) {
     stopPlayback();
@@ -468,4 +530,203 @@ function endGame() {
 
 function quitGame() {
   if (confirm('Quit this game?')) { stopPlayback(); goTo('picker'); }
+}
+
+// ============================================================
+//  MULTIPLAYER — SETUP
+// ============================================================
+async function startMultiplayer(allTracks, numTeams) {
+  const clampedTeams = Math.min(numTeams, MULTI_COLORS.length);
+  // Cards per team: enough for 2× winTarget guesses (buffer for wrong placements)
+  const perTeam = Math.max(
+    Math.floor(allTracks.length / clampedTeams),
+    winTarget * 2 + 1
+  );
+  const totalNeeded = perTeam * clampedTeams;
+
+  if (allTracks.length < totalNeeded) {
+    const minNeeded = clampedTeams * (winTarget + 2);
+    if (allTracks.length < minNeeded) {
+      alert(`Not enough tracks for ${clampedTeams} teams. Try a larger playlist or reduce "Win at".`);
+      goTo('picker');
+      return;
+    }
+  }
+
+  // Build each team's deck from non-overlapping slices of the shuffled pool
+  const actualPerTeam = Math.floor(Math.min(allTracks.length, totalNeeded) / clampedTeams);
+  multiTeams = MULTI_COLORS.slice(0, clampedTeams).map((color, i) => {
+    const deck = allTracks.slice(i * actualPerTeam, (i + 1) * actualPerTeam);
+    return {
+      color,
+      score: 0,
+      cards: deck,
+      index: 1,            // 0 = anchor, start guessing from 1
+      timeline: [{ ...deck[0] }],  // anchor auto-placed
+    };
+  });
+  multiTeamIndex = 0;
+  multiRoundTeamCount = 0;
+
+  document.getElementById('g-pl-name').textContent = selectedPlaylistName;
+
+  // Enrich anchor cards for all teams in the background (non-blocking)
+  multiTeams.forEach(team => {
+    const anchor = team.cards[0];
+    if (anchor.isrc && !anchor.mbChecked) {
+      anchor.mbChecked = true;
+      mbLookup(anchor.isrc).then(mbYear => {
+        if (mbYear !== null) {
+          anchor.year = mbYear;
+          if (team.timeline[0]) team.timeline[0].year = mbYear;
+        }
+      });
+    }
+  });
+
+  showMultiHandoff();
+}
+
+// ============================================================
+//  MULTIPLAYER — STATE SYNC
+// ============================================================
+function loadMultiTeamState(teamIdx) {
+  const team = multiTeams[teamIdx];
+  gameCards    = team.cards;
+  gameIndex    = team.index;
+  gameScore    = team.score;
+  gameTimeline = team.timeline;
+  tokens = Number.MAX_SAFE_INTEGER; // tokens unused in multiplayer — set high to prevent accidental game-over
+}
+
+function saveMultiTeamState() {
+  const team = multiTeams[multiTeamIndex];
+  team.cards    = gameCards;
+  team.index    = gameIndex;
+  team.score    = gameScore;
+  team.timeline = gameTimeline;
+}
+
+// ============================================================
+//  MULTIPLAYER — HANDOFF SCREEN
+// ============================================================
+function showMultiHandoff() {
+  const team = multiTeams[multiTeamIndex];
+  const { hex, name } = team.color;
+
+  document.getElementById('handoff-dot').style.background = hex;
+  document.getElementById('handoff-dot').style.boxShadow = `0 0 48px ${hex}88, 0 0 96px ${hex}44`;
+  document.getElementById('handoff-team-name').textContent = name;
+  document.getElementById('handoff-team-name').style.color = hex;
+  document.getElementById('handoff-team-name').style.textShadow = `4px 4px 0 ${hex}55`;
+
+  // Show all team scores
+  const scoresHtml = multiTeams.map((t, i) => {
+    const active = i === multiTeamIndex;
+    return `<span style="color:${active ? t.color.hex : 'rgba(255,255,255,0.3)'};${active ? 'font-weight:600' : ''}">${escHtml(t.color.name)}: ${t.score}</span>`;
+  }).join(' &nbsp;·&nbsp; ');
+  document.getElementById('handoff-scores').innerHTML = scoresHtml;
+
+  goTo('handoff');
+}
+
+async function startHandoffTurn() {
+  loadMultiTeamState(multiTeamIndex);
+
+  const team = multiTeams[multiTeamIndex];
+  const { hex } = team.color;
+
+  // Tint the game header with team color
+  const header = document.querySelector('.game-header');
+  if (header) header.style.borderBottom = `2px solid ${hex}`;
+  const scoreEl = document.getElementById('g-score');
+  if (scoreEl) scoreEl.style.color = hex;
+
+  // Multiplayer uses standard timeline — show it, hide tokens
+  const tlSection = document.querySelector('.timeline-section');
+  const divider   = document.querySelector('.divider');
+  if (tlSection) tlSection.style.display = '';
+  if (divider)   divider.style.display   = '';
+  document.getElementById('token-wrap').style.display = 'none';
+
+  updateScore();
+  goTo('game');
+  await loadCard();
+}
+
+// ============================================================
+//  MULTIPLAYER — TURN ADVANCEMENT
+// ============================================================
+async function advanceMultiTurn() {
+  saveMultiTeamState();
+  multiRoundTeamCount++;
+
+  // After all teams have played once in this round → check for winner
+  if (multiRoundTeamCount >= multiTeams.length) {
+    multiRoundTeamCount = 0;
+    const winner = getMultiWinner();
+    if (winner) {
+      endMultiGame(winner);
+      return;
+    }
+    // Check if all teams are out of cards
+    const anyActive = multiTeams.some(t => t.index < t.cards.length);
+    if (!anyActive) {
+      const maxScore = Math.max(...multiTeams.map(t => t.score));
+      endMultiGame(multiTeams.find(t => t.score === maxScore));
+      return;
+    }
+  }
+
+  // Advance to next team that still has cards
+  let nextIdx = (multiTeamIndex + 1) % multiTeams.length;
+  let attempts = 0;
+  while (multiTeams[nextIdx].index >= multiTeams[nextIdx].cards.length && attempts < multiTeams.length) {
+    nextIdx = (nextIdx + 1) % multiTeams.length;
+    attempts++;
+  }
+  multiTeamIndex = nextIdx;
+  showMultiHandoff();
+}
+
+function getMultiWinner() {
+  const maxScore = Math.max(...multiTeams.map(t => t.score));
+  if (maxScore < winTarget) return null;
+  const leaders = multiTeams.filter(t => t.score === maxScore);
+  return leaders.length === 1 ? leaders[0] : null; // sole leader only
+}
+
+// ============================================================
+//  MULTIPLAYER — GAME OVER
+// ============================================================
+function endMultiGame(winningTeam) {
+  stopPlayback();
+
+  document.getElementById('go-mode').textContent = 'Multiplayer Mode';
+
+  const titleEl = document.getElementById('go-title');
+  titleEl.textContent = winningTeam.color.name + ' Wins!';
+  titleEl.style.textShadow = `5px 5px 0 ${winningTeam.color.hex}`;
+  titleEl.style.color = '';
+
+  document.getElementById('go-score').textContent = winningTeam.score;
+  document.getElementById('go-context').textContent = `First to ${winTarget} correct placements!`;
+  document.getElementById('go-eliminated-card').style.display = 'none';
+  document.getElementById('go-playlist').style.display = 'none';
+
+  // Show all team scores
+  const sorted = [...multiTeams].sort((a, b) => b.score - a.score);
+  const statsEl = document.getElementById('go-token-stats');
+  statsEl.innerHTML = sorted.map((t, i) =>
+    `<span style="color:${t.color.hex}">${i === 0 ? '🏆 ' : ''}${escHtml(t.color.name)}: ${t.score}</span>`
+  ).join(' &nbsp;·&nbsp; ');
+  statsEl.style.display = '';
+
+  // Reset game header styling
+  const header = document.querySelector('.game-header');
+  if (header) header.style.borderBottom = '';
+  const scoreEl = document.getElementById('g-score');
+  if (scoreEl) scoreEl.style.color = '';
+
+  goTo('gameover');
 }
