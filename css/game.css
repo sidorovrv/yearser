@@ -1,6 +1,17 @@
 /* ===== GAME SCREEN ===== */
 #game { background: var(--black); }
 
+/* ===== TEAM BANNER (multiplayer) ===== */
+.multi-team-banner {
+  display: none;
+  padding: 5px 14px;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 /* ===== MULTIPLAYER SCORES BAR ===== */
 .multi-scores-bar {
   display: flex;

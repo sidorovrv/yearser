@@ -39,6 +39,7 @@ let acTimers = {};
 let multiTeams = [];
 let multiTeamIndex = 0;
 let multiRoundTeamCount = 0;
+let multiRoundSize = 0;   // active-team count at start of each round
 let multiTieBreaker = false;
 
 // Platform detection (iOS Safari cannot use Web Playback SDK)

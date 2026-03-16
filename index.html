@@ -52,10 +52,6 @@
       <button class="mode-btn" id="mode-multiplayer" onclick="setMode('multiplayer')">Multiplayer</button>
     </div>
     <div style="display:flex;gap:10px;align-items:flex-end">
-      <div class="num-input-wrap" id="num-pool-wrap">
-        <label>Pool</label>
-        <input type="number" id="num-pool" value="50" min="10" max="100">
-      </div>
       <div class="num-input-wrap">
         <label>Win at</label>
         <input type="number" id="num-win" value="10" min="5" max="50">
@@ -64,7 +60,8 @@
         <label>Teams</label>
         <input type="number" id="num-teams" value="2" min="2" max="12">
       </div>
-      <button class="btn btn-ghost" onclick="logout()" style="margin-left:auto;padding:10px 14px">Log out</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('rules-modal').style.display=''" style="margin-left:auto;padding:10px 14px">ℹ Rules</button>
+      <button class="btn btn-ghost" onclick="logout()" style="padding:10px 14px">Log out</button>
     </div>
     <button class="btn btn-primary" id="start-btn" onclick="startGame()" style="width:100%">♟ Play Standard</button>
   </div>
@@ -84,6 +81,8 @@
 
   <!-- Multiplayer scores bar -->
   <div id="multi-scores-bar" class="multi-scores-bar" style="display:none"></div>
+  <!-- Multiplayer team-turn banner -->
+  <div id="multi-team-banner" class="multi-team-banner" style="display:none"></div>
 
   <div class="game-body">
     <!-- Timeline -->
@@ -135,14 +134,16 @@
 
 <!-- ===== HANDOFF ===== -->
 <div id="handoff" class="screen handoff-screen">
-  <div class="handoff-hero">
-    <div class="handoff-eyebrow">Your Turn</div>
-    <div class="handoff-team-name" id="handoff-team-name">Team</div>
+  <div class="handoff-header">
+    <div class="handoff-super">Multiplayer</div>
+    <div class="handoff-team-lines">
+      <div class="handoff-title-line1" id="handoff-team-name">Team</div>
+      <div class="handoff-title-line2">Your Turn</div>
+    </div>
     <div id="handoff-tiebreaker" class="handoff-tiebreaker" style="display:none">⚡ Tie-Breaker</div>
   </div>
-  <div class="handoff-stripe" id="handoff-stripe"></div>
-  <div class="handoff-body">
-    <div class="handoff-instruction">Pass the phone to this team —<br>tap Ready when you're set to play</div>
+  <div class="handoff-footer">
+    <div class="handoff-instruction" id="handoff-instruction">Pass the device to this team —<br>tap Ready when you're set to play</div>
     <div class="handoff-scores" id="handoff-scores"></div>
     <button class="btn btn-primary handoff-ready-btn" onclick="startHandoffTurn()">I'm Ready — Let's Play →</button>
   </div>
@@ -173,6 +174,38 @@
     <button class="tmod-close" onclick="document.getElementById('timelines-modal').style.display='none'">✕</button>
   </div>
   <div class="tmod-body" id="tmod-body"></div>
+</div>
+
+<!-- ===== RULES MODAL ===== -->
+<div id="rules-modal" class="rmod-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="rmod-box">
+    <div class="rmod-header">
+      <div class="rmod-title">How to Play</div>
+      <button class="tmod-close" onclick="document.getElementById('rules-modal').style.display='none'">✕</button>
+    </div>
+    <div class="rmod-body">
+      <div class="rmod-mode">
+        <div class="rmod-mode-name">Standard</div>
+        <p>An anchor song is placed on the timeline for you. Place each new card where you think it fits chronologically. Correct placements earn hearts; wrong placements cost one. Reach the win target to complete your run.</p>
+      </div>
+      <div class="rmod-mode">
+        <div class="rmod-mode-name">Hardcore</div>
+        <p>Same as Standard — but one wrong placement ends the game immediately. No second chances.</p>
+      </div>
+      <div class="rmod-mode">
+        <div class="rmod-mode-name">4 Options</div>
+        <p>Choose from four labelled range options for where each song belongs on your timeline. Wrong choices cost a life.</p>
+      </div>
+      <div class="rmod-mode">
+        <div class="rmod-mode-name">Name Guess</div>
+        <p>Place the song correctly on the timeline, then try to guess the artist and title before they're revealed — for a bonus heart.</p>
+      </div>
+      <div class="rmod-mode">
+        <div class="rmod-mode-name">Multiplayer</div>
+        <p>Teams take turns placing songs on their own independent timelines. First team to reach the win target wins. If teams tie at the end of a round, play continues in a Tie-Breaker until one team pulls ahead.</p>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- WIN CELEBRATION OVERLAY -->

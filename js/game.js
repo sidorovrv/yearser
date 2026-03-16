@@ -49,9 +49,6 @@ function setMode(m) {
   // Show teams input only for multiplayer mode
   const teamsWrap = document.getElementById('num-teams-wrap');
   if (teamsWrap) teamsWrap.style.display = m === 'multiplayer' ? '' : 'none';
-  // Hide pool input for multiplayer (pool is auto-calculated)
-  const poolWrap = document.getElementById('num-pool-wrap');
-  if (poolWrap) poolWrap.style.display = m === 'multiplayer' ? 'none' : '';
 }
 
 // ============================================================
@@ -71,14 +68,14 @@ async function startGame() {
     : 1;
 
   winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 10, 50);
-  const poolSize = gameMode === 'multiplayer'
-    ? 2 * winTarget * numTeams                                  // auto pool for multiplayer
-    : Math.min(parseInt(document.getElementById('num-pool').value) || 50, 500);
+  // For multiplayer keep a 2× buffer for even team splits; for solo fetch ~4× win score (max 200)
+  const targetTracks = gameMode === 'multiplayer'
+    ? 2 * winTarget * numTeams * TRACK_FETCH_MULTIPLIER
+    : Math.min(Math.max(winTarget * 4, 40), 200);
 
   // Fetch tracks from playlist (or Liked Songs) with early stopping
   const isLikedPlaylist = selectedPlaylistId === '__liked__';
   let tracks = [];
-  const targetTracks = poolSize * TRACK_FETCH_MULTIPLIER; // fetch at most 2× the pool for a good random sample
   let url = isLikedPlaylist
     ? '/me/tracks?limit=50&fields=next,items(track(id,name,uri,external_ids,album(release_date,images),artists(name)))'
     : `/playlists/${selectedPlaylistId}/tracks?limit=100&fields=next,items(track(id,name,uri,external_ids,album(release_date,images),artists(name)))`;
@@ -122,9 +119,8 @@ async function startGame() {
     return;
   }
 
-  const actualPool = Math.min(poolSize, tracks.length);
-  winTarget = Math.min(winTarget, actualPool - 1);
-  gameCards = tracks.slice(0, actualPool);
+  winTarget = Math.min(winTarget, tracks.length - 1);
+  gameCards = tracks;
 
   gameIndex = 0;
   gameScore = 0;
@@ -507,7 +503,9 @@ function endGame() {
     ctxEl.textContent = `All ${winTarget} songs placed correctly!`;
     elimEl.style.display = 'none';
     tokenStatsEl.style.display = 'none';
-    document.getElementById('go-playlist').style.display = 'none';
+    const plEl = document.getElementById('go-playlist');
+    plEl.textContent = selectedPlaylistName;
+    plEl.style.display = '';
     if (goTl) {
       const sorted = [...gameTimeline].sort((a, b) => a.year - b.year);
       goTl.innerHTML = `<div class="section-label" style="margin-bottom:6px;text-align:center">Final Timeline</div><div class="go-timeline-scroll"><div style="display:flex;align-items:center;min-width:max-content;padding:0 8px">${buildTimelineHtml(sorted)}</div></div>`;
@@ -556,23 +554,8 @@ function endGame() {
   goTo('gameover');
 }
 
-function triggerWinCelebration(color) {
-  const el = document.getElementById('win-celebration');
-  if (!el) return;
-  el.innerHTML = '';
-  el.style.display = '';
-  const N = 10;
-  for (let i = 0; i < N; i++) {
-    const p = document.createElement('div');
-    p.className = 'wc-particle';
-    const size = (6 + Math.random() * 10).toFixed(1);
-    const x = (4 + Math.random() * 92).toFixed(1);
-    const delay = (Math.random() * 4).toFixed(2);
-    const dur = (3.2 + Math.random() * 2.5).toFixed(2);
-    p.style.cssText = `left:${x}%;bottom:-20px;width:${size}px;height:${size}px;background:${color};animation-delay:${delay}s;animation-duration:${dur}s`;
-    el.appendChild(p);
-  }
-  setTimeout(() => { el.style.display = 'none'; el.innerHTML = ''; }, 12000);
+function triggerWinCelebration(_color) {
+  // celebration is handled by the gameover screen slide-in animations
 }
 
 function quitGame() {
@@ -614,6 +597,7 @@ async function startMultiplayer(allTracks, numTeams) {
   });
   multiTeamIndex = 0;
   multiRoundTeamCount = 0;
+  multiRoundSize = clampedTeams;  // all teams start active
   multiTieBreaker = false;
 
   document.getElementById('g-pl-name').textContent = selectedPlaylistName;
@@ -662,11 +646,10 @@ function showMultiHandoff() {
   const team = multiTeams[multiTeamIndex];
   const { hex, name } = team.color;
 
-  document.getElementById('handoff').style.background =
-    `linear-gradient(175deg, ${hex}cc 0%, ${hex}66 40%, var(--black) 75%)`;
+  const handoffEl = document.getElementById('handoff');
+  handoffEl.style.background = '';
+  handoffEl.style.setProperty('--handoff-color', hex);
 
-  const stripe = document.getElementById('handoff-stripe');
-  if (stripe) stripe.style.background = hex;
   document.getElementById('handoff-team-name').textContent = name;
 
   // Tie-breaker indicator
@@ -693,13 +676,20 @@ async function startHandoffTurn() {
   loadMultiTeamState(multiTeamIndex);
 
   const team = multiTeams[multiTeamIndex];
-  const { hex } = team.color;
+  const { hex, name } = team.color;
 
   // Tint the game header with team color
   const header = document.querySelector('.game-header');
   if (header) header.style.borderBottom = `2px solid ${hex}`;
   const scoreEl = document.getElementById('g-score');
   if (scoreEl) scoreEl.style.color = hex;
+
+  // Team banner
+  const banner2 = document.getElementById('multi-team-banner');
+  if (banner2) {
+    banner2.textContent = `${name} is playing`;
+    banner2.style.cssText = `display:block;background:${hex}18;color:${hex};border-bottom:1px solid ${hex}33;`;
+  }
 
   // Multiplayer uses standard timeline — show it, hide tokens
   const tlSection = document.querySelector('.timeline-section');
@@ -727,19 +717,22 @@ async function advanceMultiTurn() {
   saveMultiTeamState();
   multiRoundTeamCount++;
 
-  // After all teams have played once in this round → check for winner
-  if (multiRoundTeamCount >= multiTeams.length) {
+  // After all active teams have played once in this round → check for winner
+  if (multiRoundTeamCount >= multiRoundSize) {
     multiRoundTeamCount = 0;
     const winner = getMultiWinner();
     if (winner) {
       endMultiGame(winner);
       return;
     }
-    // Check if all teams are out of cards
-    const anyActive = multiTeams.some(t => t.index < t.cards.length);
-    if (!anyActive) {
+    // Recalculate active teams for the next round
+    const activeNow = multiTeams.filter(t => t.index < t.cards.length);
+    multiRoundSize = activeNow.length;
+    if (multiRoundSize === 0) {
+      // All teams out of cards — end on highest score; ties go to earliest team in play order
       const maxScore = Math.max(...multiTeams.map(t => t.score));
-      endMultiGame(multiTeams.find(t => t.score === maxScore));
+      const leaders = multiTeams.filter(t => t.score === maxScore);
+      endMultiGame(leaders[0]);
       return;
     }
     // Multiple teams at/above winTarget but no sole leader — enter tiebreaker
@@ -771,6 +764,9 @@ function getMultiWinner() {
 function endMultiGame(winningTeam) {
   stopPlayback();
 
+  const banner2 = document.getElementById('multi-team-banner');
+  if (banner2) banner2.style.display = 'none';
+
   document.getElementById('go-mode').textContent = 'Multiplayer Mode';
 
   const titleEl = document.getElementById('go-title');
@@ -781,8 +777,14 @@ function endMultiGame(winningTeam) {
   document.getElementById('go-score').textContent = winningTeam.score;
   document.getElementById('go-context').textContent = `First to ${winTarget} correct placements wins!`;
   document.getElementById('go-eliminated-card').style.display = 'none';
-  document.getElementById('go-playlist').style.display = 'none';
-  document.getElementById('go-token-stats').style.display = 'none';
+  const plElM = document.getElementById('go-playlist');
+  plElM.textContent = selectedPlaylistName;
+  plElM.style.display = '';
+  const totalGuessed = multiTeams.reduce((s, t) => s + t.score, 0);
+  const totalPlayed = multiTeams.reduce((s, t) => s + Math.max(0, t.index - 1), 0);
+  const statsEl = document.getElementById('go-token-stats');
+  statsEl.textContent = `Match: ${totalGuessed} correct / ${totalPlayed} songs played`;
+  statsEl.style.display = '';
   const goTlM = document.getElementById('go-final-timeline');
   if (goTlM) goTlM.style.display = 'none';
   const viewTlBtnM = document.getElementById('go-view-timelines-btn');
@@ -797,9 +799,13 @@ function endMultiGame(winningTeam) {
     lbEl.innerHTML = sorted.map((t, i) => {
       const delay = `animation-delay:${i * 0.07}s`;
       const winner = i === 0;
+      const plays = Math.max(0, t.index - 1);
       return `<div class="go-lb-row${winner ? ' go-lb-winner' : ''}" style="--team-color:${t.color.hex}${winner ? `;background:${t.color.hex}18` : ''};${delay}">
         <span class="go-lb-rank">${winner ? '🏆' : (i + 1) + '.'}</span>
-        <span class="go-lb-team" style="color:${t.color.hex}">${escHtml(t.color.name)}</span>
+        <div class="go-lb-team-wrap">
+          <span class="go-lb-team" style="color:${t.color.hex}">${escHtml(t.color.name)}</span>
+          <span class="go-lb-sub">${t.score} correct / ${plays} played</span>
+        </div>
         <span class="go-lb-score">${t.score}</span>
       </div>`;
     }).join('');
