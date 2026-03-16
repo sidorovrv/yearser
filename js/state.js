@@ -39,6 +39,7 @@ let acTimers = {};
 let multiTeams = [];
 let multiTeamIndex = 0;
 let multiRoundTeamCount = 0;
+let multiTieBreaker = false;
 
 // Platform detection (iOS Safari cannot use Web Playback SDK)
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||

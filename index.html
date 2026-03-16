@@ -139,6 +139,7 @@
     <div class="handoff-dot" id="handoff-dot"></div>
     <div class="handoff-team-name" id="handoff-team-name">Team</div>
     <div class="handoff-label">Your Turn</div>
+    <div id="handoff-tiebreaker" class="handoff-tiebreaker" style="display:none">⚡ Tie-Breaker</div>
     <div class="handoff-instruction">Pass the phone to this team —<br>tap Ready when you're set to play</div>
     <div class="handoff-scores" id="handoff-scores"></div>
     <button class="btn btn-primary handoff-ready-btn" onclick="startHandoffTurn()">I'm Ready — Let's Play →</button>
@@ -161,8 +162,8 @@
   </div>
 </div>
 
-<script defer src="js/config.js"></script>
-<script defer src="js/state.js"></script>
+</body>
+</html>
 <script defer src="js/auth.js"></script>
 <script defer src="js/app.js"></script>
 <script defer src="js/playlist.js"></script>
@@ -171,5 +172,8 @@
 <script defer src="js/ui.js"></script>
 <script defer src="js/game.js"></script>
 <script defer src="js/autocomplete.js"></script>
-</body>
-</html>
+<!-- ===== WIN FLASH OVERLAY ===== -->
+<div id="win-flash" style="display:none"></div>
+
+<script defer src="js/config.js"></script>
+<script defer src="js/state.js"></script>

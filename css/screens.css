@@ -339,10 +339,12 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 8px 14px;
+  padding: 8px 6px;
   background: rgba(255,255,255,0.04);
   border: 1.5px solid rgba(255,255,255,0.1);
-  min-width: 62px;
+  width: 72px;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .hsc-chip.hsc-active {
@@ -376,4 +378,21 @@
   margin-top: auto;
   width: 100%;
   max-width: 340px;
+}
+
+.handoff-tiebreaker {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 13px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1.5px solid rgba(212,168,67,0.4);
+  background: rgba(212,168,67,0.08);
+  padding: 5px 16px;
+  animation: tbPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tbPulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }

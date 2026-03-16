@@ -2,12 +2,12 @@
 //  TEAM COLORS FOR MULTIPLAYER
 // ============================================================
 const MULTI_COLORS = [
-  { hex: '#e63329', name: 'Red'    },
   { hex: '#4a9eff', name: 'Blue'   },
   { hex: '#2db84b', name: 'Green'  },
   { hex: '#ff8c00', name: 'Orange' },
   { hex: '#a855f7', name: 'Purple' },
   { hex: '#f0c040', name: 'Yellow' },
+  { hex: '#e63329', name: 'Red'    },
   { hex: '#ff69b4', name: 'Pink'   },
   { hex: '#00bcd4', name: 'Cyan'   },
   { hex: '#ff6b6b', name: 'Coral'  },
@@ -501,6 +501,9 @@ function endGame() {
     elimEl.style.display = 'none';
     tokenStatsEl.style.display = 'none';
     document.getElementById('go-playlist').style.display = 'none';
+    goTo('gameover');
+    triggerWinFlash('#1DB954', '#d4a843');
+    return;
   } else {
     titleEl.textContent = 'ELIMINATED';
     titleEl.style.textShadow = '5px 5px 0 var(--red)';
@@ -538,6 +541,17 @@ function endGame() {
     }
   }
   goTo('gameover');
+}
+
+function triggerWinFlash(c1, c2) {
+  const el = document.getElementById('win-flash');
+  if (!el) return;
+  const NUM = 8, STAGGER = 65;
+  el.innerHTML = Array.from({ length: NUM }, (_, i) =>
+    `<div class="wf-ring" style="border-color:${i % 2 === 0 ? c1 : c2};animation-delay:${i * STAGGER}ms"></div>`
+  ).join('');
+  el.style.display = '';
+  setTimeout(() => { el.style.display = 'none'; el.innerHTML = ''; }, NUM * STAGGER + 750);
 }
 
 function quitGame() {
@@ -579,6 +593,7 @@ async function startMultiplayer(allTracks, numTeams) {
   });
   multiTeamIndex = 0;
   multiRoundTeamCount = 0;
+  multiTieBreaker = false;
 
   document.getElementById('g-pl-name').textContent = selectedPlaylistName;
 
@@ -626,15 +641,18 @@ function showMultiHandoff() {
   const team = multiTeams[multiTeamIndex];
   const { hex, name } = team.color;
 
-  // Full-screen colour splash
   document.getElementById('handoff').style.background =
-    `radial-gradient(ellipse at 50% 0%, ${hex}55 0%, ${hex}18 35%, var(--black) 65%)`;
+    `linear-gradient(175deg, ${hex}bb 0%, ${hex}55 45%, var(--black) 82%)`;
 
   document.getElementById('handoff-dot').style.background = hex;
   document.getElementById('handoff-dot').style.boxShadow = `0 0 40px ${hex}99, 0 0 80px ${hex}44`;
   document.getElementById('handoff-team-name').textContent = name;
   document.getElementById('handoff-team-name').style.color = hex;
   document.getElementById('handoff-team-name').style.textShadow = `4px 4px 0 ${hex}44`;
+
+  // Tie-breaker indicator
+  const tbEl = document.getElementById('handoff-tiebreaker');
+  if (tbEl) tbEl.style.display = multiTieBreaker ? '' : 'none';
 
   // Score chips — all teams
   const scoresHtml = multiTeams.map((t, i) => {
@@ -705,6 +723,9 @@ async function advanceMultiTurn() {
       endMultiGame(multiTeams.find(t => t.score === maxScore));
       return;
     }
+    // Multiple teams at/above winTarget but no sole leader — enter tiebreaker
+    const maxScore = Math.max(...multiTeams.map(t => t.score));
+    if (maxScore >= winTarget) multiTieBreaker = true;
   }
 
   // Advance to next team that still has cards
@@ -767,4 +788,5 @@ function endMultiGame(winningTeam) {
   if (scoreEl) scoreEl.style.color = '';
 
   goTo('gameover');
+  triggerWinFlash(winningTeam.color.hex, '#d4a843');
 }
