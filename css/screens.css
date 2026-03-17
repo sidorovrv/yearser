@@ -294,7 +294,9 @@
   flex-direction: column;
   padding: max(40px, 8vh) 28px 28px;
   justify-content: flex-end;
-  background: var(--handoff-color, var(--black));
+  background: radial-gradient(ellipse at 20% 60%, var(--handoff-glow, rgba(255,255,255,0.05)) 0%, transparent 60%), var(--black);
+  border-left: 3px solid var(--handoff-color, rgba(255,255,255,0.1));
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 }
 
 .handoff-super {
@@ -316,8 +318,8 @@
   font-family: 'Bebas Neue', cursive;
   font-size: clamp(72px, 22vw, 150px);
   letter-spacing: 0.03em;
-  color: var(--cream);
-  text-shadow: 5px 5px 0 rgba(0,0,0,0.25);
+  color: var(--handoff-color, var(--cream));
+  text-shadow: 5px 5px 0 rgba(0,0,0,0.5);
 }
 
 .handoff-title-line2 {
@@ -533,6 +535,7 @@
 .rmod-box {
   background: #111;
   border: 1px solid rgba(255,255,255,0.1);
+  border-top: 2px solid var(--teal);
   border-bottom: none;
   width: 100%;
   max-width: 480px;
@@ -566,12 +569,70 @@
   gap: 16px;
 }
 
+.rmod-intro {
+  font-size: 12px;
+  color: rgba(255,255,255,0.38);
+  line-height: 1.75;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  letter-spacing: 0.03em;
+}
+
+.rmod-mode {
+  border: 1.5px solid rgba(255,255,255,0.07);
+  border-top: 2px solid var(--mode-accent, rgba(255,255,255,0.15));
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.02);
+}
+
+.rmod-mode--standard  { --mode-accent: var(--teal); }
+.rmod-mode--hardcore  { --mode-accent: var(--red); }
+.rmod-mode--four-options { --mode-accent: var(--gold); }
+.rmod-mode--name-guess { --mode-accent: #a855f7; }
+.rmod-mode--multiplayer { --mode-accent: #4a9eff; }
+
+.rmod-mode-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
 .rmod-mode-name {
   font-family: 'Bebas Neue', cursive;
-  font-size: 18px;
+  font-size: 20px;
   letter-spacing: 0.08em;
-  color: var(--gold);
-  margin-bottom: 4px;
+  color: var(--mode-accent, var(--gold));
+}
+
+.rmod-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.rmod-list li {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.55;
+  padding-left: 16px;
+  position: relative;
+  letter-spacing: 0.02em;
+}
+
+.rmod-list li::before {
+  content: '–';
+  position: absolute;
+  left: 0;
+  color: var(--mode-accent, rgba(255,255,255,0.3));
+}
+
+.rmod-list li strong {
+  color: rgba(255,255,255,0.75);
+  font-style: normal;
 }
 
 .rmod-mode p {

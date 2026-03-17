@@ -649,6 +649,11 @@ function showMultiHandoff() {
   const handoffEl = document.getElementById('handoff');
   handoffEl.style.background = '';
   handoffEl.style.setProperty('--handoff-color', hex);
+  // Dimmed glow version for radial background (15% opacity)
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  handoffEl.style.setProperty('--handoff-glow', `rgba(${r},${g},${b},0.18)`);
 
   document.getElementById('handoff-team-name').textContent = name;
 
@@ -783,7 +788,7 @@ function endMultiGame(winningTeam) {
   const totalGuessed = multiTeams.reduce((s, t) => s + t.score, 0);
   const totalPlayed = multiTeams.reduce((s, t) => s + Math.max(0, t.index - 1), 0);
   const statsEl = document.getElementById('go-token-stats');
-  statsEl.textContent = `Match: ${totalGuessed} correct / ${totalPlayed} songs played`;
+  statsEl.textContent = `${totalGuessed} correct / ${totalPlayed} songs played`;
   statsEl.style.display = '';
   const goTlM = document.getElementById('go-final-timeline');
   if (goTlM) goTlM.style.display = 'none';
@@ -804,7 +809,6 @@ function endMultiGame(winningTeam) {
         <span class="go-lb-rank">${winner ? '🏆' : (i + 1) + '.'}</span>
         <div class="go-lb-team-wrap">
           <span class="go-lb-team" style="color:${t.color.hex}">${escHtml(t.color.name)}</span>
-          <span class="go-lb-sub">${t.score} correct / ${plays} played</span>
         </div>
         <span class="go-lb-score">${t.score}</span>
       </div>`;

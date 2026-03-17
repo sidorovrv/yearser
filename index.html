@@ -60,7 +60,7 @@
         <label>Teams</label>
         <input type="number" id="num-teams" value="2" min="2" max="12">
       </div>
-      <button class="btn btn-ghost" onclick="document.getElementById('rules-modal').style.display=''" style="margin-left:auto;padding:10px 14px">ℹ Rules</button>
+      <button class="mode-btn" onclick="document.getElementById('rules-modal').style.display=''" style="margin-left:auto;padding:0 13px;font-size:16px" title="How to Play">ℹ</button>
       <button class="btn btn-ghost" onclick="logout()" style="padding:10px 14px">Log out</button>
     </div>
     <button class="btn btn-primary" id="start-btn" onclick="startGame()" style="width:100%">♟ Play Standard</button>
@@ -184,25 +184,62 @@
       <button class="tmod-close" onclick="document.getElementById('rules-modal').style.display='none'">✕</button>
     </div>
     <div class="rmod-body">
-      <div class="rmod-mode">
-        <div class="rmod-mode-name">Standard</div>
-        <p>An anchor song is placed on the timeline for you. Place each new card where you think it fits chronologically. Correct placements earn hearts; wrong placements cost one. Reach the win target to complete your run.</p>
+      <div class="rmod-intro">Place songs in chronological order on a growing timeline. The better you know your music history, the further you'll go.</div>
+
+      <div class="rmod-mode rmod-mode--standard">
+        <div class="rmod-mode-head">
+          <div class="rmod-mode-name">Standard</div>
+        </div>
+        <ul class="rmod-list">
+          <li>An anchor song is dealt face-up to start your timeline</li>
+          <li>Place each new song where it fits chronologically</li>
+          <li>Start with 3 hearts — each wrong placement costs one</li>
+          <li>Guess the artist &amp; title before reveal for a <strong>bonus heart</strong></li>
+          <li>Reach the win target to complete your run</li>
+        </ul>
       </div>
-      <div class="rmod-mode">
-        <div class="rmod-mode-name">Hardcore</div>
-        <p>Same as Standard — but one wrong placement ends the game immediately. No second chances.</p>
+
+      <div class="rmod-mode rmod-mode--hardcore">
+        <div class="rmod-mode-head">
+          <div class="rmod-mode-name">Hardcore</div>
+        </div>
+        <ul class="rmod-list"> 
+          <li>Same as Standard — but one wrong placement ends the game</li>
+          <li>No hearts, no margin for error</li>
+        </ul>
       </div>
-      <div class="rmod-mode">
-        <div class="rmod-mode-name">4 Options</div>
-        <p>Choose from four labelled range options for where each song belongs on your timeline. Wrong choices cost a life.</p>
+
+      <div class="rmod-mode rmod-mode--four-options">
+        <div class="rmod-mode-head">
+          <div class="rmod-mode-name">4 Options</div>
+        </div>
+        <ul class="rmod-list">
+          <li>Listen to a song and pick which one it is from 4 choices</li>
+          <li>Correct picks earn a point and build your timeline</li>
+          <li>Start with 3 hearts — wrong picks cost one</li>
+        </ul>
       </div>
-      <div class="rmod-mode">
-        <div class="rmod-mode-name">Name Guess</div>
-        <p>Place the song correctly on the timeline, then try to guess the artist and title before they're revealed — for a bonus heart.</p>
+
+      <div class="rmod-mode rmod-mode--name-guess">
+        <div class="rmod-mode-head">
+          <div class="rmod-mode-name">Name Guess</div>
+        </div>
+        <ul class="rmod-list">
+          <li>Listen and guess the artist &amp; title — no timeline involved</li>
+          <li>1 pt for artist · 1 pt for title · 3 pts for both</li>
+          <li>Start with 3 hearts — guessing nothing correct costs one</li>
+        </ul>
       </div>
-      <div class="rmod-mode">
-        <div class="rmod-mode-name">Multiplayer</div>
-        <p>Teams take turns placing songs on their own independent timelines. First team to reach the win target wins. If teams tie at the end of a round, play continues in a Tie-Breaker until one team pulls ahead.</p>
+
+      <div class="rmod-mode rmod-mode--multiplayer">
+        <div class="rmod-mode-head">
+          <div class="rmod-mode-name">Multiplayer</div>
+        </div>
+        <ul class="rmod-list">
+          <li>Teams take turns placing songs on their own timelines</li>
+          <li>First team to reach the win target wins the match</li>
+          <li>If scores tie at round end, a Tie-Breaker continues until one team leads</li>
+        </ul>
       </div>
     </div>
   </div>
