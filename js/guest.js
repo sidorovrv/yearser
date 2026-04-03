@@ -16,7 +16,7 @@ function renderTeamChoiceScreen() {
     // Is this slot taken by a currently-connected device?
     const holder = Object.values(partyTeamRegistry)
       .find(v => v.teamIndex === i && v.connected);
-    const isMe = holder && partyConn && holder.connId === partyConn.id;
+    const isMe = holder && partyConn && holder.connId === getPartyConnId();
     const isTaken = !!holder && !isMe;
     const isMine = !!isMe || remoteTeamIndex === i;
 

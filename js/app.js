@@ -16,6 +16,13 @@ window.onload = async () => {
       await initGuestMode(roomParam);
     } catch (e) {
       showError('Could not connect to the game session. The room may have ended.');
+      // Override the retry button — guests don't need Spotify auth,
+      // they should go back to home instead.
+      const retryBtn = document.getElementById('loading-retry-btn');
+      if (retryBtn) {
+        retryBtn.onclick = () => { window.location.href = window.location.pathname; };
+        retryBtn.innerHTML = '← Back to Home';
+      }
     }
     return;
   }

@@ -216,11 +216,10 @@ function showQrModal() {
   const linkInput = document.getElementById('qr-link-input');
   if (linkInput) linkInput.value = url;
 
-  const canvas = document.getElementById('qr-canvas');
-  if (canvas && typeof QRCode !== 'undefined') {
-    QRCode.toCanvas(canvas, url, { width: 200, margin: 1, color: { dark: '#fffbe6', light: '#111111' } }, (err) => {
-      if (err) console.warn('[QR] render error', err);
-    });
+  // Use api.qrserver.com — free, no library needed, returns a PNG
+  const img = document.getElementById('qr-img');
+  if (img) {
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=111111&color=fffbe6&qzone=1&data=${encodeURIComponent(url)}`;
   }
 
   updateQrModal();
