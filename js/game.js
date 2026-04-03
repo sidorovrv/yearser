@@ -638,14 +638,14 @@ async function startMultiplayer(allTracks, numTeams) {
   partyRoomId = generateRoomId();
   partyTeamRegistry = {};
   partyPhase = 'handoff';
-  try {
-    await initPartyHost(partyRoomId);
+  // Show button immediately — connection happens in background
+  document.getElementById('qr-btn').style.display = '';
+  initPartyHost(partyRoomId).then(() => {
     setupHostPartyHandlers();
-    document.getElementById('qr-btn').style.display = '';
     broadcastFullState('handoff');
-  } catch (e) {
+  }).catch(e => {
     console.warn('[PartyKit] Could not connect — local-only mode', e);
-  }
+  });
 }
 
 // ============================================================
