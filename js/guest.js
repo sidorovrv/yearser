@@ -67,6 +67,7 @@ function initGuestHandlers() {
       cards: t.cards || [],
       index: t.index != null ? t.index : 1,
     }));
+    if (state.gameMode != null) gameMode = state.gameMode;
     if (state.currentTeamIndex != null) multiTeamIndex = state.currentTeamIndex;
     if (state.winTarget != null) winTarget = state.winTarget;
     if (state.tieBreaker != null) multiTieBreaker = state.tieBreaker;
@@ -144,6 +145,13 @@ function _routeGuestToPhase(state) {
     if (state.resultBanner) {
       showResult(state.resultBanner.ok, state.resultBanner.msg);
     }
+  } else if (phase === 'mst-place') {
+    goTo('game');
+    renderGuestMstPlace(state);
+  } else if (phase === 'mst-result') {
+    const current = document.querySelector('.screen.active');
+    if (current && current.id !== 'game') goTo('game');
+    renderGuestMstResult(state);
   } else if (phase === 'gameover') {
     _renderGuestGameOver(state);
   }
@@ -163,7 +171,7 @@ function _renderGuestHandoff(state, isMyTurn) {
   const b = parseInt(hex.slice(5,7), 16);
   handoffEl.style.setProperty('--handoff-glow', `rgba(${r},${g_c},${b},0.18)`);
 
-  document.getElementById('handoff-team-name').textContent = getTeamLabel(state.currentTeamIndex);
+  document.getElementById('handoff-team-name').textContent = name;
   const line2El = document.getElementById('handoff-title-line2');
   if (line2El) line2El.textContent = isMyTurn ? 'Your Turn' : 'Their Turn';
 
@@ -176,7 +184,7 @@ function _renderGuestHandoff(state, isMyTurn) {
       ? `style="--hsc-color:${t.color.hex};border-color:${t.color.hex};background:${t.color.hex}22"`
       : '';
     return `<div class="hsc-chip${active ? ' hsc-active' : ''}" ${chipStyle}>
-      <span class="hsc-name">${escHtml(getTeamLabel(i))}</span>
+      <span class="hsc-name">${escHtml(t.color.name)}</span>
       <span class="hsc-num">${t.score}</span>
     </div>`;
   }).join('');
@@ -198,7 +206,7 @@ function _renderGuestHandoff(state, isMyTurn) {
   } else {
     if (readyBtn) readyBtn.style.display = 'none';
     if (overrideBtn) overrideBtn.style.display = 'none';
-    if (instrEl) instrEl.textContent = `${getTeamLabel(state.currentTeamIndex)} is playing this round\u2026`;
+    if (instrEl) instrEl.textContent = `${name} is playing this round…`;
   }
 
   goTo('handoff');
@@ -331,7 +339,170 @@ function guestConfirmPlacement() {
   if (controlsEl) controlsEl.innerHTML = '';
 }
 
+// ── Multi-shared (One Timeline) guest functions ──────────────
+
+function renderGuestMstPlace(state) {
+  if (!state) return;
+  const card = state.currentCard;
+  const submitted = Array.isArray(state.submittedTeams) ? state.submittedTeams : [];
+  const alreadySubmitted = remoteTeamIndex !== null && submitted.includes(remoteTeamIndex);
+
+  // Shared timeline
+  gameTimeline = [...(state.sharedTimeline || [])];
+  pendingPlacementIndex = alreadySubmitted ? null : pendingPlacementIndex;
+
+  // Header / scores
+  const header = document.querySelector('.game-header');
+  if (header) header.style.borderBottom = '2px solid var(--teal)';
+  updateMultiScoresBar();
+
+  const teamBanner = document.getElementById('multi-team-banner');
+  if (teamBanner) teamBanner.style.display = 'none';
+
+  const plName = document.getElementById('g-pl-name');
+  if (plName) plName.textContent = selectedPlaylistName || '';
+
+  const scoreEl = document.getElementById('g-score');
+  if (scoreEl && remoteTeamIndex !== null && multiTeams[remoteTeamIndex]) {
+    const myTeam = multiTeams[remoteTeamIndex];
+    scoreEl.textContent = myTeam.score;
+    scoreEl.style.color = myTeam.color.hex;
+  }
+
+  // Card hidden
+  document.getElementById('g-title').textContent = '• • • • •';
+  document.getElementById('g-title').style.opacity = '0.25';
+  document.getElementById('g-artist').textContent = '• • •';
+  document.getElementById('g-artist').style.opacity = '0.2';
+  document.getElementById('g-year').classList.add('hidden');
+  document.getElementById('vinyl-wrap').style.display = '';
+  const disc = document.getElementById('vinyl-disc');
+  disc.classList.add('hidden-label');
+  disc.classList.remove('spinning', 'playing');
+  const artImg = document.getElementById('album-art');
+  artImg.classList.remove('visible');
+  if (card && card.albumArt) { artImg.src = card.albumArt; }
+  document.getElementById('revealed-art').style.display = 'none';
+
+  document.getElementById('spotify-player').style.display = 'none';
+  document.getElementById('no-device-banner').style.display = 'none';
+  document.getElementById('token-wrap').style.display = 'none';
+  document.getElementById('result-banner').className = 'result-banner';
+
+  const tlSection = document.querySelector('.timeline-section');
+  const divider = document.querySelector('.divider');
+  if (tlSection) tlSection.style.display = '';
+  if (divider) divider.style.display = '';
+
+  const interactive = !alreadySubmitted;
+  renderTimeline(interactive);
+
+  const controlsEl = document.getElementById('game-controls');
+  if (alreadySubmitted) {
+    const total = Object.values(state.teamRegistry || {}).filter(v => v.connected).length;
+    controlsEl.innerHTML = `
+      <div style="font-size:12px;color:var(--teal);letter-spacing:0.06em;text-align:center;padding:8px 0">
+        ✓ Submitted! Waiting for others… (${submitted.length}/${total || '?'})
+      </div>`;
+  } else if (pendingPlacementIndex !== null) {
+    controlsEl.innerHTML = `
+      <div style="font-size:11px;color:var(--teal);letter-spacing:0.08em;text-align:center;padding:4px 0">Tap another gap to move — or lock it in</div>
+      <div class="controls-row"><button class="btn btn-primary" onclick="guestMstLockIn()">✓ &nbsp;Lock In</button></div>`;
+  } else {
+    controlsEl.innerHTML = `<div style="font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:0.08em;text-align:center;padding:4px 0">↑ Tap a gap in the timeline to place your guess ↑</div>`;
+  }
+}
+
+function renderGuestMstResult(state) {
+  if (!state) return;
+  const card = state.currentCard;
+  const roundResults = Array.isArray(state.roundResults) ? state.roundResults : [];
+
+  // Update shared timeline
+  gameTimeline = [...(state.sharedTimeline || [])];
+  pendingPlacementIndex = null;
+
+  // Header / scores
+  const header = document.querySelector('.game-header');
+  if (header) header.style.borderBottom = '2px solid var(--teal)';
+  updateMultiScoresBar();
+
+  const teamBanner = document.getElementById('multi-team-banner');
+  if (teamBanner) teamBanner.style.display = 'none';
+
+  const plName = document.getElementById('g-pl-name');
+  if (plName) plName.textContent = selectedPlaylistName || '';
+
+  const scoreEl = document.getElementById('g-score');
+  if (scoreEl && remoteTeamIndex !== null && multiTeams[remoteTeamIndex]) {
+    const myTeam = multiTeams[remoteTeamIndex];
+    scoreEl.textContent = myTeam.score;
+    scoreEl.style.color = myTeam.color.hex;
+  }
+
+  // Show revealed card
+  if (card) {
+    document.getElementById('g-title').textContent = card.title || '—';
+    document.getElementById('g-title').style.opacity = '';
+    document.getElementById('g-artist').textContent = card.artist || '';
+    document.getElementById('g-artist').style.opacity = '';
+    if (card.year) {
+      document.getElementById('g-year').textContent = card.year;
+      document.getElementById('g-year').classList.remove('hidden');
+    }
+    document.getElementById('album-art').classList.add('visible');
+    const revArt = document.getElementById('revealed-art');
+    if (card.albumArt) { revArt.src = card.albumArt; revArt.style.display = ''; }
+    document.getElementById('vinyl-wrap').style.display = 'none';
+  }
+
+  document.getElementById('spotify-player').style.display = 'none';
+  document.getElementById('no-device-banner').style.display = 'none';
+  document.getElementById('token-wrap').style.display = 'none';
+
+  const tlSection = document.querySelector('.timeline-section');
+  const divider = document.querySelector('.divider');
+  if (tlSection) tlSection.style.display = '';
+  if (divider) divider.style.display = '';
+
+  renderTimeline(false);
+
+  // Show this team's result
+  const myResult = remoteTeamIndex !== null
+    ? roundResults.find(r => r.teamIndex === remoteTeamIndex)
+    : null;
+
+  if (myResult) {
+    showResult(myResult.correct, myResult.correct ? '✓ Correct!' : '✗ Wrong placement');
+  } else if (!state.gameOver) {
+    showResult(false, '✗ No guess submitted');
+  }
+
+  document.getElementById('game-controls').innerHTML = '';
+
+  // If game over, switch to gameover screen
+  if (state.gameOver) {
+    setTimeout(() => _renderGuestGameOver(state), 1500);
+  }
+}
+
+// Multi-shared: guest locks in their guess
+function guestMstLockIn() {
+  if (pendingPlacementIndex === null) return;
+  const insertIndex = pendingPlacementIndex;
+  sendParty({ type: 'guest-action', action: 'mst-guess', insertIndex, connId: getPartyConnId() });
+  // Optimistically show submitted state
+  const controlsEl = document.getElementById('game-controls');
+  if (controlsEl) {
+    controlsEl.innerHTML = `
+      <div style="font-size:12px;color:var(--teal);letter-spacing:0.06em;text-align:center;padding:8px 0">
+        ✓ Submitted! Waiting for others…
+      </div>`;
+  }
+}
+
 // ── Game over for guests ─────────────────────────────────────
+
 
 function _renderGuestGameOver(state) {
   // Determine winner by highest score (same logic as host's endMultiGame)
@@ -341,7 +512,8 @@ function _renderGuestGameOver(state) {
 
   const { hex, name } = winningTeam.color;
 
-  document.getElementById('go-mode').textContent = 'Multiplayer Mode';
+  document.getElementById('go-mode').textContent =
+    gameMode === 'multi-shared' ? 'One Timeline Mode' : 'Multiplayer Mode';
   const titleEl = document.getElementById('go-title');
   titleEl.textContent = name + ' Wins!';
   titleEl.style.textShadow = `5px 5px 0 ${hex}`;

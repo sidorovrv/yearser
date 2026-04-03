@@ -1,13 +1,6 @@
 // ============================================================
 //  UI HELPERS
 // ============================================================
-// Returns 'Host' for teams with no connected remote device (PartyKit session)
-function getTeamLabel(teamIndex) {
-  if (!partyRoomId || !multiTeams[teamIndex]) return multiTeams[teamIndex]?.color?.name || '';
-  const claimed = Object.values(partyTeamRegistry).some(v => v.teamIndex === teamIndex && v.connected);
-  return claimed ? multiTeams[teamIndex].color.name : 'Host';
-}
-
 function escHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -24,10 +17,10 @@ function getSorted() { return [...gameTimeline].sort((a, b) => a.year - b.year);
 function updateMultiScoresBar() {
   const bar = document.getElementById('multi-scores-bar');
   if (!bar) return;
-  if (gameMode !== 'multiplayer' || !multiTeams.length) { bar.style.display = 'none'; return; }
+  if ((gameMode !== 'multiplayer' && gameMode !== 'multi-shared') || !multiTeams.length) { bar.style.display = 'none'; return; }
   bar.style.display = '';
   bar.innerHTML = multiTeams.map((t, i) => {
-    const active = i === multiTeamIndex;
+    const active = gameMode === 'multiplayer' ? i === multiTeamIndex : false;
     return `<span class="msb-chip${active ? ' msb-active' : ''}" style="--team-color:${t.color.hex}">
       <span class="msb-dot"></span>
       <span class="msb-name">${escHtml(t.color.name)}</span>
@@ -129,6 +122,13 @@ function setControls(mode, card) {
           <div class="ac-dropdown" id="ac-title-drop"></div>
         </div>
         <div class="controls-row"><button class="btn btn-primary btn-wide" onclick="confirmNameGuess()">✓ Submit Guess</button></div>
+      </div>`;
+  } else if (mode === 'mst-host-wait') {
+    const submitted = Object.keys(multiSharedGuesses).length;
+    const total = Object.values(partyTeamRegistry).filter(v => v.connected).length;
+    el.innerHTML = `
+      <div style="font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:0.08em;text-align:center;padding:6px 0">
+        ${submitted} / ${total || '?'} teams have submitted
       </div>`;
   } else {
     el.innerHTML = '';
@@ -246,15 +246,13 @@ function updateQrModal() {
     const holder = Object.values(partyTeamRegistry)
       .find(v => v.teamIndex === i && v.connected);
     const connected = !!holder;
-    const statusText = connected ? 'Connected' : 'Host';
-    const statusClass = connected ? 'qr-connected' : 'qr-host';
     const kickBtn = connected
       ? `<button class="qr-kick-btn" onclick="kickDevice('${holder.connId}')" title="Remove this device">✕</button>`
       : '';
     return `<div class="qr-team-row">
       <span class="qr-team-dot" style="background:${t.color.hex}"></span>
       <span class="qr-team-name">${escHtml(t.color.name)}</span>
-      <span class="qr-team-status ${statusClass}">${statusText}</span>
+      <span class="qr-team-status ${connected ? 'qr-connected' : 'qr-waiting'}">${connected ? 'Connected' : 'Waiting…'}</span>
       ${kickBtn}
     </div>`;
   }).join('');

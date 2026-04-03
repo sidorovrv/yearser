@@ -50,6 +50,10 @@ let remoteTeamIndex = null;   // which team index this guest controls (null = ho
 let partyTeamRegistry = {};   // { connId: { teamIndex, connected } } — host-authoritative copy
 let partyPhase = 'idle';      // last broadcast phase (used by guest for rendering)
 
+// Multi — One Timeline mode
+let multiSharedTimeline = []; // the single shared timeline all teams build together
+let multiSharedGuesses = {};  // { teamIndex: insertIndex } — collected each round by host
+
 // Platform detection (iOS Safari cannot use Web Playback SDK)
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

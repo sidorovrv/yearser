@@ -38,17 +38,19 @@ function setMode(m) {
   document.getElementById('mode-four-options').classList.toggle('active', m === 'four-options');
   document.getElementById('mode-name-guess').classList.toggle('active', m === 'name-guess');
   document.getElementById('mode-multiplayer').classList.toggle('active', m === 'multiplayer');
+  document.getElementById('mode-multi-shared').classList.toggle('active', m === 'multi-shared');
   const labels = {
     'standard':     '▶ Play Standard',
     'hardcore':     '▶ Play Hardcore',
     'four-options': '▶ Play 4 Options',
     'name-guess':   '▶ Play Name Guess',
     'multiplayer':  '▶ Play Multiplayer',
+    'multi-shared': '▶ Play One Timeline',
   };
   document.getElementById('start-btn').textContent = labels[m] || '▶ Play';
-  // Show teams input only for multiplayer mode
+  // Show teams input for multiplayer modes
   const teamsWrap = document.getElementById('num-teams-wrap');
-  if (teamsWrap) teamsWrap.style.display = m === 'multiplayer' ? '' : 'none';
+  if (teamsWrap) teamsWrap.style.display = (m === 'multiplayer' || m === 'multi-shared') ? '' : 'none';
 }
 
 // ============================================================
@@ -63,13 +65,13 @@ async function startGame() {
   document.getElementById('loading-error').style.display = 'none';
   document.getElementById('loading-text').textContent = 'Loading tracks…';
 
-  const numTeams = gameMode === 'multiplayer'
+  const numTeams = (gameMode === 'multiplayer' || gameMode === 'multi-shared')
     ? Math.max(2, parseInt(document.getElementById('num-teams').value) || 2)
     : 1;
 
   winTarget = Math.min(parseInt(document.getElementById('num-win').value) || 10, 50);
   // For multiplayer keep a 2× buffer for even team splits; for solo fetch ~4× win score (max 200)
-  const targetTracks = gameMode === 'multiplayer'
+  const targetTracks = (gameMode === 'multiplayer' || gameMode === 'multi-shared')
     ? 2 * winTarget * numTeams * TRACK_FETCH_MULTIPLIER
     : Math.min(Math.max(winTarget * 4, 40), 200);
 
@@ -116,6 +118,11 @@ async function startGame() {
 
   if (gameMode === 'multiplayer') {
     await startMultiplayer(tracks, numTeams);
+    return;
+  }
+
+  if (gameMode === 'multi-shared') {
+    await startMultiShared(tracks, numTeams);
     return;
   }
 
@@ -226,7 +233,19 @@ async function loadCard() {
 
 function tentativePlaceCard(insertIndex) {
   if (!isHost && remoteTeamIndex !== null) {
-    // Guest: send action to host, render optimistically
+    if (gameMode === 'multi-shared') {
+      // MST guest: store locally, don't relay yet — guest confirms with Lock In
+      pendingPlacementIndex = insertIndex;
+      renderTimeline(true);
+      const controlsEl = document.getElementById('game-controls');
+      if (controlsEl) {
+        controlsEl.innerHTML = `
+          <div style="font-size:11px;color:var(--teal);letter-spacing:0.08em;text-align:center;padding:4px 0">Tap another gap to move — or lock it in</div>
+          <div class="controls-row"><button class="btn btn-primary" onclick="guestMstLockIn()">✓\u00a0&nbsp;Lock In</button></div>`;
+      }
+      return;
+    }
+    // Regular guest: send action to host, render optimistically
     pendingPlacementIndex = insertIndex;
     renderTimeline(true);
     sendParty({ type: 'guest-action', action: 'place', insertIndex, connId: getPartyConnId() });
@@ -576,6 +595,7 @@ function quitGame() {
     // Keep the PartyKit connection alive — guests do not need to rescan the QR.
     // The room stays open; a new game will reuse the same room ID.
     document.getElementById('qr-btn').style.display = 'none';
+    document.getElementById('mst-finish-btn').style.display = 'none';
     goTo('picker');
   }
 }
@@ -663,12 +683,206 @@ async function startMultiplayer(allTracks, numTeams) {
 }
 
 // ============================================================
-//  PARTYKIT — BROADCAST FULL STATE TO GUESTS
+//  MULTI — ONE TIMELINE — SETUP & ROUND LOGIC
 // ============================================================
-function buildCardPayload(phase) {
+async function startMultiShared(allTracks, numTeams) {
+  const clampedTeams = Math.min(numTeams, MULTI_COLORS.length);
+
+  multiTeams = MULTI_COLORS.slice(0, clampedTeams).map(color => ({
+    color, score: 0, cards: [], index: 0, timeline: [],
+  }));
+  multiTeamIndex = 0;
+  multiTieBreaker = false;
+  multiSharedTimeline = [];
+  multiSharedGuesses = {};
+
+  gameCards = allTracks;
+  gameIndex = 0;
+  gameScore = 0;
+  gameTimeline = [];
+
+  document.getElementById('g-pl-name').textContent = selectedPlaylistName;
+  document.getElementById('token-wrap').style.display = 'none';
+
+  // PartyKit room (reuse or create)
+  if (!partyRoomId) {
+    partyRoomId = localStorage.getItem('timelinefm_party_room') || generateRoomId();
+    localStorage.setItem('timelinefm_party_room', partyRoomId);
+  }
+  clearPartyHandlers();
+  partyPhase = 'mst-place';
+  document.getElementById('qr-btn').style.display = '';
+  document.getElementById('mst-finish-btn').style.display = '';
+  updateMstFinishBtn();
+
+  if (partyConn && partyConn.readyState === 1) {
+    setupHostPartyHandlers();
+  } else {
+    initPartyHost(partyRoomId).then(() => setupHostPartyHandlers()).catch(e => {
+      console.warn('[PartyKit] Could not connect — local-only mode', e);
+    });
+  }
+
+  goTo('game');
+  await loadMultiSharedCard();
+}
+
+async function loadMultiSharedCard() {
+  if (gameIndex >= gameCards.length) { endMultiSharedGame(); return; }
+
+  multiSharedGuesses = {};
+  updateMstFinishBtn();
+
   const card = gameCards[gameIndex];
+  if (card.isrc && !card.mbChecked) {
+    card.mbChecked = true;
+    const mbYear = await mbLookup(card.isrc);
+    if (mbYear !== null) card.year = mbYear;
+  }
+
+  currentTrackUri = card.uri;
+  playTrack(card.uri);
+
+  // Host sees the full card (they're the DJ/host)
+  document.getElementById('g-title').textContent = card.title;
+  document.getElementById('g-title').style.opacity = '';
+  document.getElementById('g-artist').textContent = card.artist;
+  document.getElementById('g-artist').style.opacity = '';
+  document.getElementById('g-year').textContent = card.year;
+  document.getElementById('g-year').classList.remove('hidden');
+  document.getElementById('album-art').classList.add('visible');
+  const revArt = document.getElementById('revealed-art');
+  if (card.albumArt) { revArt.src = card.albumArt; revArt.style.display = ''; }
+  document.getElementById('vinyl-wrap').style.display = 'none';
+  document.getElementById('result-banner').className = 'result-banner';
+  document.getElementById('play-btn').textContent = '▶';
+  document.getElementById('play-btn').disabled = false;
+  document.getElementById('player-status').textContent = 'Ready to play';
+
+  const counter = document.getElementById('g-counter');
+  counter.textContent = `${gameIndex + 1}/${gameCards.length}`;
+
+  const banner = document.getElementById('multi-team-banner');
+  if (banner) banner.style.display = 'none';
+
+  // Host sees shared timeline (no pending placement)
+  gameTimeline = [...multiSharedTimeline];
+  pendingPlacementIndex = null;
+  renderTimeline(false);
+  setControls('mst-host-wait');
+
+  broadcastFullState('mst-place');
+}
+
+function updateMstFinishBtn() {
+  const btn = document.getElementById('mst-finish-btn');
+  if (!btn) return;
+  if (gameMode !== 'multi-shared') { btn.style.display = 'none'; return; }
+  const submitted = Object.keys(multiSharedGuesses).length;
+  const total = Object.values(partyTeamRegistry).filter(v => v.connected).length;
+  btn.style.display = '';
+  btn.textContent = submitted > 0
+    ? `Finish Round (${submitted}/${total || '?'} submitted)`
+    : `Finish Round`;
+}
+
+function finishMultiSharedRound() {
+  if (gameMode !== 'multi-shared') return;
+  const card = gameCards[gameIndex];
+  const roundResults = [];
+
+  // Score each team that submitted a guess
+  for (const [teamIdxStr, insertIndex] of Object.entries(multiSharedGuesses)) {
+    const teamIndex = Number(teamIdxStr);
+    const team = multiTeams[teamIndex];
+    if (!team) continue;
+
+    // Re-evaluate correctness against current shared timeline (sorted)
+    const sorted = [...multiSharedTimeline].sort((a, b) => a.year - b.year);
+    const prev = insertIndex > 0 ? sorted[insertIndex - 1] : null;
+    const next = insertIndex < sorted.length ? sorted[insertIndex] : null;
+    const correct = !(prev && card.year < prev.year) && !(next && card.year > next.year);
+
+    if (correct) team.score++;
+    roundResults.push({ teamIndex, insertIndex, correct });
+  }
+
+  // Place card on shared timeline at its correct (year-sorted) position
+  multiSharedTimeline.push({ ...card });
+  multiSharedTimeline.sort((a, b) => a.year - b.year);
+
+  gameIndex++;
+
+  // Check for a winner
+  const maxScore = Math.max(...multiTeams.map(t => t.score));
+  if (maxScore >= winTarget) {
+    const winners = multiTeams.filter(t => t.score === maxScore);
+    const winner = winners[0];
+    broadcastFullState('mst-result', { roundResults, gameOver: true });
+    setTimeout(() => endMultiSharedGame(winner), 2500);
+    return;
+  }
+
+  broadcastFullState('mst-result', { roundResults });
+  setTimeout(() => loadMultiSharedCard(), 3000);
+}
+
+function endMultiSharedGame(winningTeam) {
+  // Re-use the existing multiplayer gameover screen
+  const sorted = [...multiTeams].sort((a, b) => b.score - a.score);
+  const winner = winningTeam || sorted[0];
+  if (!winner) { goTo('picker'); return; }
+
+  const { hex } = winner.color;
+
+  document.getElementById('go-mode').textContent = 'One Timeline Mode';
+  const titleEl = document.getElementById('go-title');
+  titleEl.textContent = winner.color.name + ' Wins!';
+  titleEl.style.textShadow = `5px 5px 0 ${hex}`;
+  titleEl.style.color = '';
+
+  document.getElementById('go-score').textContent = winner.score;
+  document.getElementById('go-context').textContent = `First to ${winTarget} correct placements wins!`;
+  document.getElementById('go-eliminated-card').style.display = 'none';
+
+  const plEl = document.getElementById('go-playlist');
+  plEl.textContent = selectedPlaylistName;
+  plEl.style.display = '';
+
+  const totalPlayed = gameIndex;
+  const statsEl = document.getElementById('go-token-stats');
+  statsEl.textContent = `${multiSharedTimeline.length} songs on the shared timeline`;
+  statsEl.style.display = '';
+  document.getElementById('go-final-timeline').style.display = 'none';
+  document.getElementById('go-view-timelines-btn').style.display = 'none';
+
+  const lbEl = document.getElementById('go-leaderboard');
+  if (lbEl) {
+    lbEl.innerHTML = sorted.map((t, i) => {
+      const isWinner = i === 0;
+      return `<div class="go-lb-row${isWinner ? ' go-lb-winner' : ''}" style="--team-color:${t.color.hex}${isWinner ? `;background:${t.color.hex}18` : ''};animation-delay:${i * 0.07}s">
+        <span class="go-lb-rank">${isWinner ? '\ud83c\udfc6' : (i + 1) + '.'}</span>
+        <div class="go-lb-team-wrap"><span class="go-lb-team" style="color:${t.color.hex}">${escHtml(t.color.name)}</span></div>
+        <span class="go-lb-score">${t.score}</span>
+      </div>`;
+    }).join('');
+    lbEl.style.display = '';
+  }
+
+  document.getElementById('gameover').style.background =
+    `radial-gradient(ellipse at 50% 30%, ${hex}44 0%, ${hex}14 55%, var(--black) 78%)`;
+  document.getElementById('mst-finish-btn').style.display = 'none';
+  document.getElementById('qr-btn').style.display = 'none';
+
+  broadcastFullState('gameover');
+  goTo('gameover');
+}
+
+
+function buildCardPayload(phase) {
+  const card = gameCards[gameIndex > 0 && (phase === 'mst-result') ? gameIndex - 1 : gameIndex];
   if (!card) return null;
-  const revealed = (phase === 'result' || phase === 'gameover');
+  const revealed = (phase === 'result' || phase === 'gameover' || phase === 'mst-result');
   return {
     albumArt: card.albumArt || null,
     uri: card.uri || null,
@@ -688,6 +902,7 @@ function broadcastFullState(phase, opts = {}) {
 
   const payload = {
     type: 'full-state',
+    gameMode,
     playlistName: selectedPlaylistName,
     winTarget,
     tieBreaker: multiTieBreaker,
@@ -699,6 +914,16 @@ function broadcastFullState(phase, opts = {}) {
     resultBanner: opts.resultBanner || null,
     teamRegistry: partyTeamRegistry,
   };
+
+  // Multi-shared (One Timeline) extra fields
+  if (phase === 'mst-place' || phase === 'mst-result') {
+    payload.sharedTimeline = multiSharedTimeline;
+    payload.submittedTeams = Object.keys(multiSharedGuesses).map(Number);
+  }
+  if (phase === 'mst-result') {
+    payload.roundResults = opts.roundResults || [];
+    payload.gameOver = opts.gameOver || false;
+  }
 
   sendParty(payload);
 }
@@ -733,6 +958,17 @@ function setupHostPartyHandlers() {
   onPartyMessage('guest-action', ({ action, insertIndex, connId }) => {
     const entry = partyTeamRegistry[connId];
     if (!entry) return;
+
+    // Multi-shared mode: collect guest guess silently
+    if (gameMode === 'multi-shared') {
+      if (action === 'mst-guess' && partyPhase === 'mst-place') {
+        multiSharedGuesses[entry.teamIndex] = insertIndex;
+        updateMstFinishBtn();
+        broadcastFullState('mst-place');
+      }
+      return;
+    }
+
     if (entry.teamIndex !== multiTeamIndex) return;
     if (action === 'place') tentativePlaceCard(insertIndex);
     else if (action === 'confirm') confirmPlacement();
@@ -781,7 +1017,7 @@ function showMultiHandoff() {
   const b = parseInt(hex.slice(5,7), 16);
   handoffEl.style.setProperty('--handoff-glow', `rgba(${r},${g},${b},0.18)`);
 
-  document.getElementById('handoff-team-name').textContent = getTeamLabel(multiTeamIndex);
+  document.getElementById('handoff-team-name').textContent = name;
 
   // Tie-breaker indicator
   const tbEl = document.getElementById('handoff-tiebreaker');
@@ -794,7 +1030,7 @@ function showMultiHandoff() {
       ? `style="--hsc-color:${t.color.hex};border-color:${t.color.hex};background:${t.color.hex}22"`
       : '';
     return `<div class="hsc-chip${active ? ' hsc-active' : ''}" ${chipStyle}>
-      <span class="hsc-name">${escHtml(getTeamLabel(i))}</span>
+      <span class="hsc-name">${escHtml(t.color.name)}</span>
       <span class="hsc-num">${t.score}</span>
     </div>`;
   }).join('');
@@ -810,7 +1046,7 @@ function showMultiHandoff() {
   if (teamHasRemote) {
     if (readyBtn) readyBtn.style.display = 'none';
     if (overrideBtn) overrideBtn.style.display = '';
-    if (instrEl) instrEl.textContent = `Waiting for ${getTeamLabel(multiTeamIndex)} to tap Ready on their device…`;
+    if (instrEl) instrEl.textContent = `Waiting for ${name} to tap Ready on their device…`;
     if (line2El) line2El.textContent = 'Their Turn';
   } else {
     if (readyBtn) readyBtn.style.display = '';

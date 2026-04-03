@@ -50,6 +50,7 @@
       <button class="mode-btn" id="mode-four-options" onclick="setMode('four-options')">4 Options</button>
       <button class="mode-btn" id="mode-name-guess" onclick="setMode('name-guess')">Name Guess</button>
       <button class="mode-btn" id="mode-multiplayer" onclick="setMode('multiplayer')">Multiplayer</button>
+      <button class="mode-btn" id="mode-multi-shared" onclick="setMode('multi-shared')">One Timeline</button>
     </div>
     <div style="display:flex;gap:10px;align-items:flex-end">
       <div class="num-input-wrap">
@@ -91,6 +92,7 @@
       <span class="hdr-pill hdr-score">★ <span id="g-score">0</span></span>
     </div>
     <button class="qr-btn" id="qr-btn" onclick="showQrModal()" style="display:none" title="Share game — invite others to join">📡</button>
+    <button class="mst-finish-btn" id="mst-finish-btn" onclick="finishMultiSharedRound()" style="display:none">Finish Round</button>
   </div>
 
   <!-- Multiplayer scores bar -->
