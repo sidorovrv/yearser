@@ -1,6 +1,13 @@
 // ============================================================
 //  UI HELPERS
 // ============================================================
+// Returns 'Host' for teams with no connected remote device (PartyKit session)
+function getTeamLabel(teamIndex) {
+  if (!partyRoomId || !multiTeams[teamIndex]) return multiTeams[teamIndex]?.color?.name || '';
+  const claimed = Object.values(partyTeamRegistry).some(v => v.teamIndex === teamIndex && v.connected);
+  return claimed ? multiTeams[teamIndex].color.name : 'Host';
+}
+
 function escHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -70,9 +77,13 @@ function setControls(mode, card) {
   if (mode === 'place-hint') {
     el.innerHTML = guessBlock + `<div style="font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:0.08em;text-align:center;padding:4px 0">↑ Tap a gap in the timeline to place your guess ↑</div>`;
   } else if (mode === 'confirm') {
+    const _override = isHost && gameMode === 'multiplayer' &&
+      Object.values(partyTeamRegistry).some(v => v.teamIndex === multiTeamIndex && v.connected);
+    const _hint = _override ? 'Tap another gap to move — or override their guess' : 'Tap another gap to move — or lock it in';
+    const _btnLabel = _override ? '⚡\u00a0Override' : '✓\u00a0&nbsp;Lock In';
     el.innerHTML = guessBlock + `
-      <div style="font-size:11px;color:var(--teal);letter-spacing:0.08em;text-align:center;padding:4px 0">Tap another gap to move — or lock it in</div>
-      <div class="controls-row"><button class="btn btn-primary" onclick="confirmPlacement()">✓ &nbsp;Lock In</button></div>`;
+      <div style="font-size:11px;color:var(--teal);letter-spacing:0.08em;text-align:center;padding:4px 0">${_hint}</div>
+      <div class="controls-row"><button class="btn btn-primary" onclick="confirmPlacement()">${_btnLabel}</button></div>`;
   } else if (mode === 'next') {
     el.innerHTML = `<div class="controls-row"><button class="btn btn-primary btn-wide" onclick="nextCard()">Next Song →</button></div>`;
   } else if (mode === 'four-options' && card) {
@@ -235,13 +246,15 @@ function updateQrModal() {
     const holder = Object.values(partyTeamRegistry)
       .find(v => v.teamIndex === i && v.connected);
     const connected = !!holder;
+    const statusText = connected ? 'Connected' : 'Host';
+    const statusClass = connected ? 'qr-connected' : 'qr-host';
     const kickBtn = connected
       ? `<button class="qr-kick-btn" onclick="kickDevice('${holder.connId}')" title="Remove this device">✕</button>`
       : '';
     return `<div class="qr-team-row">
       <span class="qr-team-dot" style="background:${t.color.hex}"></span>
       <span class="qr-team-name">${escHtml(t.color.name)}</span>
-      <span class="qr-team-status ${connected ? 'qr-connected' : 'qr-waiting'}">${connected ? 'Connected' : 'Waiting\u2026'}</span>
+      <span class="qr-team-status ${statusClass}">${statusText}</span>
       ${kickBtn}
     </div>`;
   }).join('');

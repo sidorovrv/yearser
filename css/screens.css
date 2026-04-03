@@ -763,6 +763,7 @@
 }
 .qr-connected { color: #2db84b; }
 .qr-waiting { color: rgba(255,255,255,0.3); }
+.qr-host { color: var(--gold); }
 
 .qr-kick-btn {
   background: none;

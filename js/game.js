@@ -485,6 +485,7 @@ function confirmNameGuess() {
 }
 
 function endGame() {
+  if (gameMode === 'multiplayer') return; // safety guard — multiplayer uses endMultiGame
   const titleEl = document.getElementById('go-title');
   const scoreEl = document.getElementById('go-score');
   const ctxEl = document.getElementById('go-context');
@@ -780,7 +781,7 @@ function showMultiHandoff() {
   const b = parseInt(hex.slice(5,7), 16);
   handoffEl.style.setProperty('--handoff-glow', `rgba(${r},${g},${b},0.18)`);
 
-  document.getElementById('handoff-team-name').textContent = name;
+  document.getElementById('handoff-team-name').textContent = getTeamLabel(multiTeamIndex);
 
   // Tie-breaker indicator
   const tbEl = document.getElementById('handoff-tiebreaker');
@@ -793,7 +794,7 @@ function showMultiHandoff() {
       ? `style="--hsc-color:${t.color.hex};border-color:${t.color.hex};background:${t.color.hex}22"`
       : '';
     return `<div class="hsc-chip${active ? ' hsc-active' : ''}" ${chipStyle}>
-      <span class="hsc-name">${escHtml(t.color.name)}</span>
+      <span class="hsc-name">${escHtml(getTeamLabel(i))}</span>
       <span class="hsc-num">${t.score}</span>
     </div>`;
   }).join('');
@@ -805,14 +806,17 @@ function showMultiHandoff() {
   const readyBtn = document.getElementById('handoff-ready-btn');
   const overrideBtn = document.getElementById('handoff-override-btn');
   const instrEl = document.getElementById('handoff-instruction');
+  const line2El = document.getElementById('handoff-title-line2');
   if (teamHasRemote) {
     if (readyBtn) readyBtn.style.display = 'none';
     if (overrideBtn) overrideBtn.style.display = '';
-    if (instrEl) instrEl.textContent = `Waiting for ${name} to tap Ready on their device…`;
+    if (instrEl) instrEl.textContent = `Waiting for ${getTeamLabel(multiTeamIndex)} to tap Ready on their device…`;
+    if (line2El) line2El.textContent = 'Their Turn';
   } else {
     if (readyBtn) readyBtn.style.display = '';
     if (overrideBtn) overrideBtn.style.display = 'none';
     if (instrEl) instrEl.innerHTML = "Pass the device to this team \u2014<br>tap Ready when you're set to play";
+    if (line2El) line2El.textContent = 'Your Turn';
   }
 
   broadcastFullState('handoff');

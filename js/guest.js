@@ -163,15 +163,9 @@ function _renderGuestHandoff(state, isMyTurn) {
   const b = parseInt(hex.slice(5,7), 16);
   handoffEl.style.setProperty('--handoff-glow', `rgba(${r},${g_c},${b},0.18)`);
 
-  const myTeamName = remoteTeamIndex !== null && multiTeams[remoteTeamIndex]
-    ? multiTeams[remoteTeamIndex].color.name
-    : null;
-
-  if (isMyTurn) {
-    document.getElementById('handoff-team-name').textContent = 'Your Turn!';
-  } else if (myTeamName) {
-    document.getElementById('handoff-team-name').textContent = `${name}'s Turn`;
-  }
+  document.getElementById('handoff-team-name').textContent = getTeamLabel(state.currentTeamIndex);
+  const line2El = document.getElementById('handoff-title-line2');
+  if (line2El) line2El.textContent = isMyTurn ? 'Your Turn' : 'Their Turn';
 
   const tbEl = document.getElementById('handoff-tiebreaker');
   if (tbEl) tbEl.style.display = state.tieBreaker ? '' : 'none';
@@ -182,7 +176,7 @@ function _renderGuestHandoff(state, isMyTurn) {
       ? `style="--hsc-color:${t.color.hex};border-color:${t.color.hex};background:${t.color.hex}22"`
       : '';
     return `<div class="hsc-chip${active ? ' hsc-active' : ''}" ${chipStyle}>
-      <span class="hsc-name">${escHtml(t.color.name)}</span>
+      <span class="hsc-name">${escHtml(getTeamLabel(i))}</span>
       <span class="hsc-num">${t.score}</span>
     </div>`;
   }).join('');
@@ -204,7 +198,7 @@ function _renderGuestHandoff(state, isMyTurn) {
   } else {
     if (readyBtn) readyBtn.style.display = 'none';
     if (overrideBtn) overrideBtn.style.display = 'none';
-    if (instrEl) instrEl.textContent = `${name} is playing this round…`;
+    if (instrEl) instrEl.textContent = `${getTeamLabel(state.currentTeamIndex)} is playing this round\u2026`;
   }
 
   goTo('handoff');
