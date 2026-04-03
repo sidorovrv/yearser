@@ -43,6 +43,10 @@ function claimTeam(teamIndex) {
 
 function joinAsSpectator() {
   remoteTeamIndex = null; // null = spectator, can watch but not act
+  // Hide Spotify-specific elements immediately so the game screen
+  // doesn't flash "Searching for Spotify" before renderGuestGame runs.
+  document.getElementById('spotify-player').style.display = 'none';
+  document.getElementById('no-device-banner').style.display = 'none';
   goTo('game');
   renderGuestGame(_lastGuestState);
 }
@@ -208,6 +212,10 @@ function renderGuestGame(state) {
   const scoreEl = document.getElementById('g-score');
   if (scoreEl) { scoreEl.textContent = gameScore; scoreEl.style.color = hex; }
 
+  // Playlist name badge
+  const plName = document.getElementById('g-pl-name');
+  if (plName) plName.textContent = selectedPlaylistName || '';
+
   const teamBanner = document.getElementById('multi-team-banner');
   if (teamBanner) {
     teamBanner.textContent = `${name} is playing`;
@@ -329,8 +337,5 @@ function _showGuestNotice(msg) {
   notice._hideTimer = setTimeout(() => { notice.style.opacity = '0'; }, 2500);
 }
 
-// ── Bootstrap guest handlers ─────────────────────────────────
-// Runs as soon as this script loads on guest devices.
-if (!isHost) {
-  initGuestHandlers();
-}
+// initGuestHandlers() is called explicitly from initGuestMode() in app.js
+// once isHost has been set to false.

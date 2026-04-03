@@ -77,16 +77,19 @@ function showError(msg) {
 //  GUEST MODE — no Spotify auth, join via share link
 // ============================================================
 async function initGuestMode(roomId) {
-  // Connect to the PartyKit room; initPartyGuest resolves once we receive
-  // the first full-state or team-registry-update from the server.
+  // Guests are always in multiplayer mode
+  gameMode = 'multiplayer';
+
+  // Register message handlers BEFORE opening the connection so no
+  // messages are missed (isHost is false from this point on).
+  initGuestHandlers();
+
+  // Connect to the PartyKit room; resolves once we receive the first
+  // full-state or team-registry-update from the server.
   await initPartyGuest(roomId);
 
-  // Populate the team-choice screen with whatever state we already have
-  // (renderGuestState was called by onPartyMessage handlers during initPartyGuest)
-  // If we already have multiTeams populated, render team choice immediately.
-  if (multiTeams.length) {
-    renderTeamChoiceScreen();
-  }
+  // Render team choice now that multiTeams has been populated by the handler.
+  renderTeamChoiceScreen();
   goTo('team-choice');
 }
 
