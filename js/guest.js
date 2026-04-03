@@ -163,7 +163,15 @@ function _renderGuestHandoff(state, isMyTurn) {
   const b = parseInt(hex.slice(5,7), 16);
   handoffEl.style.setProperty('--handoff-glow', `rgba(${r},${g_c},${b},0.18)`);
 
-  document.getElementById('handoff-team-name').textContent = name;
+  const myTeamName = remoteTeamIndex !== null && multiTeams[remoteTeamIndex]
+    ? multiTeams[remoteTeamIndex].color.name
+    : null;
+
+  if (isMyTurn) {
+    document.getElementById('handoff-team-name').textContent = 'Your Turn!';
+  } else if (myTeamName) {
+    document.getElementById('handoff-team-name').textContent = `${name}'s Turn`;
+  }
 
   const tbEl = document.getElementById('handoff-tiebreaker');
   if (tbEl) tbEl.style.display = state.tieBreaker ? '' : 'none';
@@ -185,13 +193,18 @@ function _renderGuestHandoff(state, isMyTurn) {
   const instrEl = document.getElementById('handoff-instruction');
 
   if (isMyTurn) {
-    if (readyBtn) { readyBtn.style.display = ''; readyBtn.onclick = guestReady; }
+    if (readyBtn) {
+      readyBtn.style.display = '';
+      readyBtn.disabled = false;
+      readyBtn.textContent = "I'm Ready — Let's Play →";
+      readyBtn.onclick = guestReady;
+    }
     if (overrideBtn) overrideBtn.style.display = 'none';
     if (instrEl) instrEl.innerHTML = "It's your turn!<br>Tap Ready when you're set to play";
   } else {
     if (readyBtn) readyBtn.style.display = 'none';
     if (overrideBtn) overrideBtn.style.display = 'none';
-    if (instrEl) instrEl.textContent = `Waiting for ${name} to play…`;
+    if (instrEl) instrEl.textContent = `${name} is playing this round…`;
   }
 
   goTo('handoff');

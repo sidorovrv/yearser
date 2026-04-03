@@ -820,6 +820,13 @@ function showMultiHandoff() {
   goTo('handoff');
 }
 
+function kickDevice(connId) {
+  if (!connId || !partyTeamRegistry[connId]) return;
+  delete partyTeamRegistry[connId];
+  broadcastFullState(partyPhase);
+  updateQrModal();
+}
+
 function hostOverrideTurn() {
   // Host takes over the current team's turn instead of waiting for the remote device
   sendParty({ type: 'host-override', teamIndex: multiTeamIndex });

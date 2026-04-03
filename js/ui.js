@@ -235,10 +235,14 @@ function updateQrModal() {
     const holder = Object.values(partyTeamRegistry)
       .find(v => v.teamIndex === i && v.connected);
     const connected = !!holder;
+    const kickBtn = connected
+      ? `<button class="qr-kick-btn" onclick="kickDevice('${holder.connId}')" title="Remove this device">✕</button>`
+      : '';
     return `<div class="qr-team-row">
       <span class="qr-team-dot" style="background:${t.color.hex}"></span>
       <span class="qr-team-name">${escHtml(t.color.name)}</span>
-      <span class="qr-team-status ${connected ? 'qr-connected' : 'qr-waiting'}">${connected ? 'Connected' : 'Waiting…'}</span>
+      <span class="qr-team-status ${connected ? 'qr-connected' : 'qr-waiting'}">${connected ? 'Connected' : 'Waiting\u2026'}</span>
+      ${kickBtn}
     </div>`;
   }).join('');
 }

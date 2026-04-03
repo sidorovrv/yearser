@@ -81,6 +81,13 @@ export default {
     // (handled in onClose below)
 
     // ---- everything else: relay to all except sender ----
+    // For guest→host messages that carry connId, inject the server-side
+    // sender.id so the host's partyTeamRegistry lookup always matches.
+    if (msg.type === 'guest-ready' || msg.type === 'guest-action') {
+      const enriched = { ...msg, connId: sender.id };
+      room.broadcast(JSON.stringify(enriched), [sender.id]);
+      return;
+    }
     room.broadcast(message, [sender.id]);
   },
 
