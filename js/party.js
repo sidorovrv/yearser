@@ -18,6 +18,10 @@ function onPartyMessage(type, fn) {
   _partyHandlers[type].push(fn);
 }
 
+function clearPartyHandlers() {
+  for (const key of Object.keys(_partyHandlers)) delete _partyHandlers[key];
+}
+
 // ---- stable client ID (persists across reconnects) ----
 let _myConnId = null;
 
@@ -142,4 +146,5 @@ function disconnectParty() {
   if (partyConn) { partyConn.close(); partyConn = null; }
   partyRoomId = null;
   _myConnId = null;
+  localStorage.removeItem('timelinefm_party_room');
 }

@@ -572,7 +572,8 @@ function triggerWinCelebration(_color) {
 function quitGame() {
   if (confirm('Quit this game?')) {
     stopPlayback();
-    disconnectParty();
+    // Keep the PartyKit connection alive — guests do not need to rescan the QR.
+    // The room stays open; a new game will reuse the same room ID.
     document.getElementById('qr-btn').style.display = 'none';
     goTo('picker');
   }
@@ -634,18 +635,30 @@ async function startMultiplayer(allTracks, numTeams) {
 
   showMultiHandoff();
 
-  // ── PartyKit: create a room so other devices can join ──
-  partyRoomId = generateRoomId();
-  partyTeamRegistry = {};
+  // ── PartyKit: reuse existing room or create a persistent one ──
+  // Room ID persists in localStorage so the QR code never changes between games.
+  if (!partyRoomId) {
+    partyRoomId = localStorage.getItem('timelinefm_party_room') || generateRoomId();
+    localStorage.setItem('timelinefm_party_room', partyRoomId);
+  }
+  // Preserve team registry so connected guests keep their claimed teams.
+  // Mark any currently-claimed teams as active (in case of partial reload).
   partyPhase = 'handoff';
-  // Show button immediately — connection happens in background
   document.getElementById('qr-btn').style.display = '';
-  initPartyHost(partyRoomId).then(() => {
+  // Clear handlers to avoid duplicates when re-starting a game.
+  clearPartyHandlers();
+  if (partyConn && partyConn.readyState === 1) {
+    // Already connected — just re-register handlers and broadcast new state.
     setupHostPartyHandlers();
     broadcastFullState('handoff');
-  }).catch(e => {
-    console.warn('[PartyKit] Could not connect — local-only mode', e);
-  });
+  } else {
+    initPartyHost(partyRoomId).then(() => {
+      setupHostPartyHandlers();
+      broadcastFullState('handoff');
+    }).catch(e => {
+      console.warn('[PartyKit] Could not connect — local-only mode', e);
+    });
+  }
 }
 
 // ============================================================

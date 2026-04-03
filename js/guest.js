@@ -74,10 +74,14 @@ function initGuestHandlers() {
     if (state.teamRegistry != null) partyTeamRegistry = state.teamRegistry;
     partyPhase = state.phase;
 
-    // If we're still on team-choice, just refresh the grid
+    // If we're still on team-choice, refresh the grid.
+    // If the game is already running and we've claimed a team, advance now.
     const current = document.querySelector('.screen.active');
     if (current && current.id === 'team-choice') {
       renderTeamChoiceScreen();
+      if (remoteTeamIndex !== null && state.phase !== 'idle') {
+        _routeGuestToPhase(state);
+      }
       return;
     }
 
@@ -120,6 +124,14 @@ function _routeGuestToPhase(state) {
   const isMyTurn = remoteTeamIndex !== null && remoteTeamIndex === currentTeamIndex;
 
   if (phase === 'handoff') {
+    // If arriving from gameover (new game started), go back to team-choice
+    // so the guest re-confirms their slot in the fresh registry.
+    const current = document.querySelector('.screen.active');
+    if (current && current.id === 'gameover') {
+      renderTeamChoiceScreen();
+      goTo('team-choice');
+      return;
+    }
     _renderGuestHandoff(state, isMyTurn);
   } else if (phase === 'place' || phase === 'confirm') {
     goTo('game');
@@ -315,9 +327,66 @@ function guestConfirmPlacement() {
 // ── Game over for guests ─────────────────────────────────────
 
 function _renderGuestGameOver(state) {
-  // Show the gameover screen read-only — no play-again available for guests
-  const playAgainBtn = document.querySelector('#gameover .btn-primary');
+  // Determine winner by highest score (same logic as host's endMultiGame)
+  const sorted = [...multiTeams].sort((a, b) => b.score - a.score);
+  const winningTeam = sorted[0];
+  if (!winningTeam) { goTo('gameover'); return; }
+
+  const { hex, name } = winningTeam.color;
+
+  document.getElementById('go-mode').textContent = 'Multiplayer Mode';
+  const titleEl = document.getElementById('go-title');
+  titleEl.textContent = name + ' Wins!';
+  titleEl.style.textShadow = `5px 5px 0 ${hex}`;
+  titleEl.style.color = '';
+
+  document.getElementById('go-score').textContent = winningTeam.score;
+  document.getElementById('go-context').textContent =
+    `First to ${state.winTarget || winTarget} correct placements wins!`;
+  document.getElementById('go-eliminated-card').style.display = 'none';
+
+  const plEl = document.getElementById('go-playlist');
+  plEl.textContent = selectedPlaylistName;
+  plEl.style.display = '';
+
+  const totalGuessed = multiTeams.reduce((s, t) => s + t.score, 0);
+  const totalPlayed = multiTeams.reduce((s, t) => s + Math.max(0, (t.index || 1) - 1), 0);
+  const statsEl = document.getElementById('go-token-stats');
+  statsEl.textContent = `${totalGuessed} correct / ${totalPlayed} songs played`;
+  statsEl.style.display = '';
+
+  document.getElementById('go-final-timeline').style.display = 'none';
+  const viewTlBtn = document.getElementById('go-view-timelines-btn');
+  if (viewTlBtn) viewTlBtn.style.display = '';
+
+  // Leaderboard
+  const lbEl = document.getElementById('go-leaderboard');
+  if (lbEl) {
+    lbEl.innerHTML = sorted.map((t, i) => {
+      const winner = i === 0;
+      return `<div class="go-lb-row${winner ? ' go-lb-winner' : ''}" style="--team-color:${t.color.hex}${winner ? `;background:${t.color.hex}18` : ''};animation-delay:${i * 0.07}s">
+        <span class="go-lb-rank">${winner ? '🏆' : (i + 1) + '.'}</span>
+        <div class="go-lb-team-wrap">
+          <span class="go-lb-team" style="color:${t.color.hex}">${escHtml(t.color.name)}</span>
+        </div>
+        <span class="go-lb-score">${t.score}</span>
+      </div>`;
+    }).join('');
+    lbEl.style.display = '';
+  }
+
+  document.getElementById('gameover').style.background =
+    `radial-gradient(ellipse at 50% 30%, ${hex}44 0%, ${hex}14 55%, var(--black) 78%)`;
+
+  // Hide host-only actions
+  const playAgainBtn = document.getElementById('go-play-again-btn');
   if (playAgainBtn) playAgainBtn.style.display = 'none';
+  const changePlaylistBtn = document.getElementById('go-change-playlist-btn');
+  if (changePlaylistBtn) changePlaylistBtn.style.display = 'none';
+
+  const header = document.querySelector('.game-header');
+  if (header) header.style.borderBottom = '';
+
   goTo('gameover');
 }
 

@@ -51,7 +51,7 @@ export default {
 
       // Check if that team index is already claimed by an active connection
       const alreadyTaken = Object.values(registry).some(
-        v => v.teamIndex === msg.teamIndex && v.connId !== sender.id
+        v => v.teamIndex === msg.teamIndex && v.connId !== sender.id && v.connected
       );
 
       if (alreadyTaken) {

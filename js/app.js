@@ -118,9 +118,33 @@ async function initApp() {
 }
 
 // ============================================================
+//  WAKE LOCK — prevent phone screen from sleeping during gameplay
+// ============================================================
+let _wakeLock = null;
+const _wakeLockScreens = new Set(['game', 'handoff']);
+
+async function _acquireWakeLock() {
+  if (!('wakeLock' in navigator) || _wakeLock) return;
+  try { _wakeLock = await navigator.wakeLock.request('screen'); } catch { /* unsupported or denied */ }
+}
+
+function _releaseWakeLock() {
+  if (_wakeLock) { _wakeLock.release(); _wakeLock = null; }
+}
+
+// Re-acquire after returning to the tab (wake lock is dropped when tab is hidden)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const active = document.querySelector('.screen.active');
+    if (active && _wakeLockScreens.has(active.id)) _acquireWakeLock();
+  }
+});
+
+// ============================================================
 //  NAVIGATION
 // ============================================================
 function goTo(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  if (_wakeLockScreens.has(id)) _acquireWakeLock(); else _releaseWakeLock();
 }
