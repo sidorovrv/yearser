@@ -198,7 +198,7 @@ function _renderGuestHandoff(state, isMyTurn) {
 }
 
 function guestReady() {
-  sendParty({ type: 'guest-ready' });
+  sendParty({ type: 'guest-ready', connId: getPartyConnId() });
   // Optimistic UI: show a "waiting" state
   const readyBtn = document.getElementById('handoff-ready-btn');
   if (readyBtn) { readyBtn.disabled = true; readyBtn.textContent = 'Waiting…'; }
@@ -313,12 +313,12 @@ function renderGuestGame(state) {
 function guestTentativePlace(insertIndex) {
   pendingPlacementIndex = insertIndex;
   renderTimeline(true); // optimistic local render
-  sendParty({ type: 'guest-action', action: 'place', insertIndex });
+  sendParty({ type: 'guest-action', action: 'place', insertIndex, connId: getPartyConnId() });
 }
 
 // Guest action: lock in
 function guestConfirmPlacement() {
-  sendParty({ type: 'guest-action', action: 'confirm' });
+  sendParty({ type: 'guest-action', action: 'confirm', connId: getPartyConnId() });
   // Disable controls to avoid double-submit
   const controlsEl = document.getElementById('game-controls');
   if (controlsEl) controlsEl.innerHTML = '';

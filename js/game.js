@@ -229,7 +229,7 @@ function tentativePlaceCard(insertIndex) {
     // Guest: send action to host, render optimistically
     pendingPlacementIndex = insertIndex;
     renderTimeline(true);
-    sendParty({ type: 'guest-action', action: 'place', insertIndex });
+    sendParty({ type: 'guest-action', action: 'place', insertIndex, connId: getPartyConnId() });
     return;
   }
   if (gameMode === 'four-options' || gameMode === 'name-guess') return;
@@ -922,8 +922,6 @@ function getMultiWinner() {
 //  MULTIPLAYER — GAME OVER
 // ============================================================
 function endMultiGame(winningTeam) {
-  stopPlayback();
-
   const banner2 = document.getElementById('multi-team-banner');
   if (banner2) banner2.style.display = 'none';
 
