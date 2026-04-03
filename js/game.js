@@ -221,9 +221,17 @@ async function loadCard() {
     setControls('place-hint');
   }
   renderTimeline(true);
+  if (gameMode === 'multiplayer') broadcastFullState('place');
 }
 
 function tentativePlaceCard(insertIndex) {
+  if (!isHost && remoteTeamIndex !== null) {
+    // Guest: send action to host, render optimistically
+    pendingPlacementIndex = insertIndex;
+    renderTimeline(true);
+    sendParty({ type: 'guest-action', action: 'place', insertIndex });
+    return;
+  }
   if (gameMode === 'four-options' || gameMode === 'name-guess') return;
   if (gameMode === 'standard') {
     const ae = document.getElementById('ac-artist');
@@ -234,6 +242,7 @@ function tentativePlaceCard(insertIndex) {
   pendingPlacementIndex = insertIndex;
   setControls('confirm');
   renderTimeline(true);
+  if (gameMode === 'multiplayer') broadcastFullState('confirm');
 }
 
 function confirmPlacement() {
@@ -302,6 +311,7 @@ function confirmPlacement() {
       showResult(true, msg);
       document.getElementById('game-controls').innerHTML = '';
       renderTimeline(false);
+      broadcastFullState('result', { resultBanner: { ok: true, msg } });
       setTimeout(async () => {
         gameTimeline.forEach(c => delete c.justPlaced);
         gameIndex++;
@@ -322,6 +332,7 @@ function confirmPlacement() {
       showResult(false, `✗ Wrong!`);
       document.getElementById('game-controls').innerHTML = '';
       renderTimeline(false);
+      broadcastFullState('result', { resultBanner: { ok: false, msg: '✗ Wrong!' } });
       setTimeout(async () => {
         gameTimeline.forEach(c => delete c.justPlaced);
         gameIndex++;
@@ -559,7 +570,12 @@ function triggerWinCelebration(_color) {
 }
 
 function quitGame() {
-  if (confirm('Quit this game?')) { stopPlayback(); goTo('picker'); }
+  if (confirm('Quit this game?')) {
+    stopPlayback();
+    disconnectParty();
+    document.getElementById('qr-btn').style.display = 'none';
+    goTo('picker');
+  }
 }
 
 // ============================================================
@@ -617,6 +633,102 @@ async function startMultiplayer(allTracks, numTeams) {
   });
 
   showMultiHandoff();
+
+  // ── PartyKit: create a room so other devices can join ──
+  partyRoomId = generateRoomId();
+  partyTeamRegistry = {};
+  partyPhase = 'handoff';
+  try {
+    await initPartyHost(partyRoomId);
+    setupHostPartyHandlers();
+    document.getElementById('qr-btn').style.display = '';
+    broadcastFullState('handoff');
+  } catch (e) {
+    console.warn('[PartyKit] Could not connect — local-only mode', e);
+  }
+}
+
+// ============================================================
+//  PARTYKIT — BROADCAST FULL STATE TO GUESTS
+// ============================================================
+function buildCardPayload(phase) {
+  const card = gameCards[gameIndex];
+  if (!card) return null;
+  const revealed = (phase === 'result' || phase === 'gameover');
+  return {
+    albumArt: card.albumArt || null,
+    uri: card.uri || null,
+    ...(revealed ? { title: card.title, artist: card.artist, year: card.year } : {}),
+  };
+}
+
+function broadcastFullState(phase, opts = {}) {
+  if (!partyConn || !partyRoomId) return;
+  partyPhase = phase;
+
+  const teamsSnapshot = multiTeams.map(t => ({
+    color: t.color,
+    score: t.score,
+    timeline: t.timeline,
+  }));
+
+  const payload = {
+    type: 'full-state',
+    playlistName: selectedPlaylistName,
+    winTarget,
+    tieBreaker: multiTieBreaker,
+    currentTeamIndex: multiTeamIndex,
+    phase,
+    teams: teamsSnapshot,
+    currentCard: buildCardPayload(phase),
+    pendingPlacementIndex,
+    resultBanner: opts.resultBanner || null,
+    teamRegistry: partyTeamRegistry,
+  };
+
+  sendParty(payload);
+}
+
+// ============================================================
+//  PARTYKIT — HOST MESSAGE HANDLERS
+// ============================================================
+function setupHostPartyHandlers() {
+  onPartyMessage('team-claim', ({ teamIndex, connId }) => {
+    const existingHolder = Object.entries(partyTeamRegistry)
+      .find(([id, v]) => v.teamIndex === teamIndex && id !== connId && v.connected);
+    if (existingHolder) {
+      sendParty({ type: 'team-claim-rejected', teamIndex, connId });
+      return;
+    }
+    for (const key of Object.keys(partyTeamRegistry)) {
+      if (key === connId) delete partyTeamRegistry[key];
+    }
+    partyTeamRegistry[connId] = { teamIndex, connId, connected: true };
+    broadcastFullState(partyPhase);
+    updateQrModal();
+  });
+
+  onPartyMessage('guest-ready', ({ connId }) => {
+    const entry = partyTeamRegistry[connId];
+    if (!entry) return;
+    if (entry.teamIndex === multiTeamIndex) {
+      startHandoffTurn();
+    }
+  });
+
+  onPartyMessage('guest-action', ({ action, insertIndex, connId }) => {
+    const entry = partyTeamRegistry[connId];
+    if (!entry) return;
+    if (entry.teamIndex !== multiTeamIndex) return;
+    if (action === 'place') tentativePlaceCard(insertIndex);
+    else if (action === 'confirm') confirmPlacement();
+  });
+
+  onPartyMessage('team-registry-update', ({ registry }) => {
+    if (!registry) return;
+    partyTeamRegistry = registry;
+    updateQrModal();
+  });
 }
 
 // ============================================================
@@ -674,7 +786,37 @@ function showMultiHandoff() {
   }).join('');
   document.getElementById('handoff-scores').innerHTML = scoresHtml;
 
+  // ── PartyKit: decide whether the active team has a remote device ──
+  const teamHasRemote = isHost && Object.values(partyTeamRegistry)
+    .some(v => v.teamIndex === multiTeamIndex && v.connected);
+  const readyBtn = document.getElementById('handoff-ready-btn');
+  const overrideBtn = document.getElementById('handoff-override-btn');
+  const instrEl = document.getElementById('handoff-instruction');
+  if (teamHasRemote) {
+    if (readyBtn) readyBtn.style.display = 'none';
+    if (overrideBtn) overrideBtn.style.display = '';
+    if (instrEl) instrEl.textContent = `Waiting for ${name} to tap Ready on their device…`;
+  } else {
+    if (readyBtn) readyBtn.style.display = '';
+    if (overrideBtn) overrideBtn.style.display = 'none';
+    if (instrEl) instrEl.innerHTML = "Pass the device to this team \u2014<br>tap Ready when you're set to play";
+  }
+
+  broadcastFullState('handoff');
+
   goTo('handoff');
+}
+
+function hostOverrideTurn() {
+  // Host takes over the current team's turn instead of waiting for the remote device
+  sendParty({ type: 'host-override', teamIndex: multiTeamIndex });
+  const readyBtn = document.getElementById('handoff-ready-btn');
+  const overrideBtn = document.getElementById('handoff-override-btn');
+  const instrEl = document.getElementById('handoff-instruction');
+  if (readyBtn) readyBtn.style.display = '';
+  if (overrideBtn) overrideBtn.style.display = 'none';
+  if (instrEl) instrEl.innerHTML = "Pass the device to this team \u2014<br>tap Ready when you're set to play";
+  startHandoffTurn();
 }
 
 async function startHandoffTurn() {
@@ -822,6 +964,7 @@ function endMultiGame(winningTeam) {
   const scoreEl = document.getElementById('g-score');
   if (scoreEl) scoreEl.style.color = '';
 
+  broadcastFullState('gameover');
   goTo('gameover');
   triggerWinCelebration(winningTeam.color.hex);
 }

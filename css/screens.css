@@ -651,3 +651,252 @@
   .handoff-ready-btn { max-width: 460px; font-size: 13px; padding: 15px 28px; }
   .handoff-footer { gap: 20px; padding: 24px 48px 48px; }
 }
+
+/* ===== QR BUTTON (game header) ===== */
+.qr-btn {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--cream);
+  font-size: 17px;
+  width: 34px; height: 34px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.qr-btn:hover { background: rgba(255,255,255,0.14); }
+
+/* ===== QR SHARE MODAL ===== */
+.qr-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.qr-box {
+  background: #141414;
+  border: 1px solid rgba(255,255,255,0.12);
+  width: 100%;
+  max-width: 320px;
+  padding: 20px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.qr-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qr-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  color: var(--cream);
+}
+
+#qr-canvas {
+  border: 3px solid #111;
+  display: block;
+}
+
+.qr-link-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.qr-link-input {
+  flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+.qr-copy-btn {
+  padding: 8px 14px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.qr-teams-label {
+  width: 100%;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: -6px;
+}
+
+.qr-teams { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+
+.qr-team-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.qr-team-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.qr-team-name { flex: 1; color: var(--cream); }
+
+.qr-team-status {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.qr-connected { color: #2db84b; }
+.qr-waiting { color: rgba(255,255,255,0.3); }
+
+/* ===== TEAM CHOICE SCREEN ===== */
+#team-choice {
+  background: var(--black);
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.tc-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.tc-super {
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 4px;
+}
+
+.tc-playlist {
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(22px, 6vw, 32px);
+  letter-spacing: 0.04em;
+  color: var(--cream);
+}
+
+.tc-body {
+  flex: 1;
+  padding: 24px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.tc-subtitle {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+}
+
+.tc-team-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tc-team-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-left: 4px solid var(--tc-color, rgba(255,255,255,0.2));
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+  color: var(--cream);
+}
+
+.tc-team-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--tc-color, rgba(255,255,255,0.3));
+}
+
+.tc-team-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tc-team-btn.tc-team-mine {
+  border-color: var(--tc-color, #4a9eff);
+  background: rgba(var(--tc-color, #4a9eff), 0.08);
+  box-shadow: 0 0 0 1px var(--tc-color, #4a9eff);
+}
+
+.tc-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tc-name {
+  flex: 1;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.tc-score {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.06em;
+}
+
+.tc-badge {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5);
+  padding: 2px 7px;
+}
+
+.tc-badge-mine {
+  background: rgba(29,185,84,0.15);
+  color: var(--teal);
+}
+
+.tc-spectate-btn {
+  margin-top: auto;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+}
+
+/* ===== SPECTATOR BADGE (in game controls area) ===== */
+.spectator-badge {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.35);
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* ===== HANDOFF OVERRIDE BUTTON ===== */
+.handoff-override-btn {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  padding: 12px 20px;
+}

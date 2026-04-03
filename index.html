@@ -6,6 +6,8 @@
 <title>Timeline FM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,500;1,300&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/partysocket/dist/partysocket.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/screens.css">
 <link rel="stylesheet" href="css/game.css">
@@ -67,10 +69,24 @@
   </div>
 </div>
 
+<!-- ===== TEAM CHOICE (guest join screen) ===== -->
+<div id="team-choice" class="screen">
+  <div class="tc-header">
+    <div class="tc-super">Timeline FM · Join Game</div>
+    <div class="tc-playlist" id="tc-playlist-name"></div>
+  </div>
+  <div class="tc-body">
+    <div class="tc-subtitle">Choose your team to play</div>
+    <div class="tc-team-grid" id="tc-team-grid"></div>
+    <button class="btn btn-ghost tc-spectate-btn" onclick="joinAsSpectator()">👁 Spectate only</button>
+  </div>
+</div>
+
 <!-- ===== GAME ===== -->
 <div id="game" class="screen">
   <div class="game-header">
     <button class="back-btn" onclick="quitGame()">←</button>
+    <button class="qr-btn" id="qr-btn" onclick="showQrModal()" style="display:none" title="Share game — invite others to join">📡</button>
     <div class="pl-badge" id="g-pl-name"></div>
     <div class="hdr-pills">
       <span class="hdr-pill hdr-counter" id="g-counter"></span>
@@ -145,7 +161,8 @@
   <div class="handoff-footer">
     <div class="handoff-instruction" id="handoff-instruction">Pass the device to this team —<br>tap Ready when you're set to play</div>
     <div class="handoff-scores" id="handoff-scores"></div>
-    <button class="btn btn-primary handoff-ready-btn" onclick="startHandoffTurn()">I'm Ready — Let's Play →</button>
+    <button class="btn btn-primary handoff-ready-btn" id="handoff-ready-btn" onclick="startHandoffTurn()">I'm Ready — Let's Play →</button>
+    <button class="btn btn-ghost handoff-override-btn" id="handoff-override-btn" onclick="hostOverrideTurn()" style="display:none">Play for this team instead →</button>
   </div>
 </div>
 
@@ -245,18 +262,37 @@
   </div>
 </div>
 
+<!-- ===== QR SHARE MODAL ===== -->
+<div id="qr-modal" class="qr-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="qr-box">
+    <div class="qr-header">
+      <div class="qr-title">Join this Game</div>
+      <button class="tmod-close" onclick="document.getElementById('qr-modal').style.display='none'">✕</button>
+    </div>
+    <canvas id="qr-canvas"></canvas>
+    <div class="qr-link-row">
+      <input id="qr-link-input" class="qr-link-input" readonly>
+      <button class="btn btn-ghost qr-copy-btn" id="qr-copy-btn" onclick="copyShareLink()">Copy</button>
+    </div>
+    <div class="qr-teams-label">Team connections</div>
+    <div class="qr-teams" id="qr-teams"></div>
+  </div>
+</div>
+
 <!-- WIN CELEBRATION OVERLAY -->
 <div id="win-celebration" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:9998;overflow:hidden"></div>
 
 <script defer src="js/config.js"></script>
 <script defer src="js/state.js"></script>
 <script defer src="js/auth.js"></script>
+<script defer src="js/party.js"></script>
 <script defer src="js/app.js"></script>
 <script defer src="js/playlist.js"></script>
 <script defer src="js/playback.js"></script>
 <script defer src="js/musicbrainz.js"></script>
 <script defer src="js/ui.js"></script>
 <script defer src="js/game.js"></script>
+<script defer src="js/guest.js"></script>
 <script defer src="js/autocomplete.js"></script>
 </body>
 </html>

@@ -6,6 +6,20 @@ window.onload = async () => {
   const code = params.get('code');
   const error = params.get('error');
 
+  // ── Guest path: ?room=<id> without an OAuth code means this is a joining device ──
+  const roomParam = params.get('room');
+  if (roomParam && !code) {
+    isHost = false;
+    partyRoomId = roomParam;
+    document.getElementById('loading-text').textContent = 'Connecting to game…';
+    try {
+      await initGuestMode(roomParam);
+    } catch (e) {
+      showError('Could not connect to the game session. The room may have ended.');
+    }
+    return;
+  }
+
   if (error) {
     showError('Spotify login was cancelled or failed. Please try again.');
     return;
@@ -50,6 +64,23 @@ function showError(msg) {
   document.getElementById('loading-text').style.display = 'none';
   document.getElementById('loading-error').style.display = 'block';
   document.getElementById('loading-error-msg').textContent = msg;
+}
+
+// ============================================================
+//  GUEST MODE — no Spotify auth, join via share link
+// ============================================================
+async function initGuestMode(roomId) {
+  // Connect to the PartyKit room; initPartyGuest resolves once we receive
+  // the first full-state or team-registry-update from the server.
+  await initPartyGuest(roomId);
+
+  // Populate the team-choice screen with whatever state we already have
+  // (renderGuestState was called by onPartyMessage handlers during initPartyGuest)
+  // If we already have multiTeams populated, render team choice immediately.
+  if (multiTeams.length) {
+    renderTeamChoiceScreen();
+  }
+  goTo('team-choice');
 }
 
 // ============================================================

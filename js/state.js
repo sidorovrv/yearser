@@ -42,6 +42,14 @@ let multiRoundTeamCount = 0;
 let multiRoundSize = 0;   // active-team count at start of each round
 let multiTieBreaker = false;
 
+// PartyKit session sharing
+let isHost = true;            // false on guest devices
+let partyRoomId = null;       // room ID (host creates, guest reads from URL)
+let partyConn = null;         // PartySocket instance
+let remoteTeamIndex = null;   // which team index this guest controls (null = host / spectator)
+let partyTeamRegistry = {};   // { connId: { teamIndex, connected } } — host-authoritative copy
+let partyPhase = 'idle';      // last broadcast phase (used by guest for rendering)
+
 // Platform detection (iOS Safari cannot use Web Playback SDK)
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

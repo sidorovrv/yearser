@@ -42,6 +42,19 @@ function updateTokenDisplay() {
 // ============================================================
 function setControls(mode, card) {
   const el = document.getElementById('game-controls');
+
+  // Spectator guard: non-host devices that don't own the current team see a read-only badge
+  if (!isHost && remoteTeamIndex !== null && remoteTeamIndex !== multiTeamIndex) {
+    const teamName = (multiTeams[multiTeamIndex] && multiTeams[multiTeamIndex].color.name) || '';
+    el.innerHTML = `<div class="spectator-badge">\ud83d\udc41 ${escHtml(teamName)} is playing</div>`;
+    return;
+  }
+  // Pure spectator (no team claimed) also gets read-only badge
+  if (!isHost && remoteTeamIndex === null) {
+    el.innerHTML = `<div class="spectator-badge">\ud83d\udc41 Spectating</div>`;
+    return;
+  }
+
   const guessBlock = gameMode === 'standard' ? `
     <div style="width:100%;max-width:340px;margin-bottom:10px">
       <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:8px">Guess for +1 token (optional)</div>
@@ -188,4 +201,59 @@ function buildTimelineHtml(sorted) {
       <div class="t-artist">${escHtml(card.artist)}</div>
     </div>`;
   }).join('');
+}
+
+// ============================================================
+//  QR SHARE MODAL
+// ============================================================
+function showQrModal() {
+  if (!partyRoomId) return;
+  const modal = document.getElementById('qr-modal');
+  if (!modal) return;
+
+  const url = getShareURL(partyRoomId);
+
+  const linkInput = document.getElementById('qr-link-input');
+  if (linkInput) linkInput.value = url;
+
+  const canvas = document.getElementById('qr-canvas');
+  if (canvas && typeof QRCode !== 'undefined') {
+    QRCode.toCanvas(canvas, url, { width: 200, margin: 1, color: { dark: '#fffbe6', light: '#111111' } }, (err) => {
+      if (err) console.warn('[QR] render error', err);
+    });
+  }
+
+  updateQrModal();
+  modal.style.display = '';
+}
+
+function updateQrModal() {
+  const teamsEl = document.getElementById('qr-teams');
+  if (!teamsEl) return;
+  if (!multiTeams.length) { teamsEl.innerHTML = ''; return; }
+
+  teamsEl.innerHTML = multiTeams.map((t, i) => {
+    const holder = Object.values(partyTeamRegistry)
+      .find(v => v.teamIndex === i && v.connected);
+    const connected = !!holder;
+    return `<div class="qr-team-row">
+      <span class="qr-team-dot" style="background:${t.color.hex}"></span>
+      <span class="qr-team-name">${escHtml(t.color.name)}</span>
+      <span class="qr-team-status ${connected ? 'qr-connected' : 'qr-waiting'}">${connected ? 'Connected' : 'Waiting…'}</span>
+    </div>`;
+  }).join('');
+}
+
+function copyShareLink() {
+  if (!partyRoomId) return;
+  const url = getShareURL(partyRoomId);
+  const btn = document.getElementById('qr-copy-btn');
+  navigator.clipboard.writeText(url).then(() => {
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 1800); }
+  }).catch(() => {
+    // Fallback: select the input
+    const input = document.getElementById('qr-link-input');
+    if (input) { input.select(); document.execCommand('copy'); }
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 1800); }
+  });
 }
