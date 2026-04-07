@@ -104,6 +104,15 @@ async function spotifyFetch(path, options = {}) {
   if (res.status === 401) {
     logout(); return null;
   }
+  if (res.status === 403) {
+    const err = await res.json().catch(() => ({}));
+    if (err?.error?.message === 'Insufficient client scope') {
+      console.warn('Token missing required scopes — forcing re-auth');
+      logout(); return null;
+    }
+    console.warn('Spotify API error', res.status, err);
+    return null;
+  }
   if (res.status === 204 || res.status === 202) return {};
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

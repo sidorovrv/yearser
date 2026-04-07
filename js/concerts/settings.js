@@ -45,7 +45,7 @@ function getSelectedProviders() {
   if (settings && Array.isArray(settings.providers) && settings.providers.length > 0) {
     return settings.providers;
   }
-  return ['ticketmaster', 'bandsintown'];
+  return ['ticketmaster'];
 }
 
 function renderSettingsPanel() {
