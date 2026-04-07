@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Timeline FM — Concerts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,500;1,300&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+<!-- noUiSlider -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.css">
+<script src="https://cdn.jsdelivr.net/npm/nouislider@15.8.1/dist/nouislider.min.js"></script>
+
+<!-- App styles -->
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/concerts.css">
+</head>
+<body>
+
+<!-- ===== LOADING ===== -->
+<div id="concerts-loading" class="screen active">
+  <div class="spinner" id="concerts-spinner"></div>
+  <div id="concerts-status" class="loading-text">Connecting to Spotify…</div>
+  <div id="concerts-error" style="display:none;text-align:center;max-width:340px;padding:0 24px">
+    <div class="error-box" id="concerts-error-msg"></div>
+    <button class="btn btn-spotify" onclick="loginWithSpotify()" style="margin-top:20px">
+      <svg class="spotify-icon" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      Try Again
+    </button>
+  </div>
+</div>
+
+<!-- ===== MAIN MAP SCREEN ===== -->
+<div id="concerts-main" class="screen">
+
+  <!-- Header -->
+  <div class="concerts-header">
+    <div class="concerts-header-left">
+      <a href="index.html" class="concerts-back-link">← Game</a>
+      <div class="concerts-title">Concerts by History</div>
+    </div>
+    <div class="concerts-header-right">
+      <button class="concerts-settings-btn" onclick="toggleSettingsPanel()">⚙ Settings</button>
+      <div class="concerts-user-badge">
+        <img id="concerts-user-avatar" src="" alt="" onerror="this.style.display='none'" />
+        <span id="concerts-user-name"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="concerts-stats"></div>
+
+  <!-- Map + Search overlay -->
+  <div class="concerts-map-area">
+    <div id="concerts-search-wrap">
+      <input type="text" id="concerts-artist-search" placeholder="🔍  Filter by artist…" autocomplete="off" />
+      <button id="concerts-search-clear">✕</button>
+      <div id="concerts-search-dropdown"></div>
+    </div>
+    <div id="concerts-map"></div>
+  </div>
+
+  <!-- Timeline slider -->
+  <div class="concerts-timeline">
+    <div class="timeline-labels">
+      <span id="timeline-from"></span>
+      <span id="timeline-to"></span>
+    </div>
+    <div id="concerts-timeline-slider"></div>
+  </div>
+
+  <!-- Settings side panel -->
+  <div class="settings-overlay" id="concerts-settings-overlay" onclick="toggleSettingsPanel()"></div>
+  <div id="concerts-settings-panel"></div>
+</div>
+
+<!-- Shared scripts (auth, config, state) -->
+<script defer src="js/config.js"></script>
+<script defer src="js/state.js"></script>
+<script defer src="js/auth.js"></script>
+
+<!-- Concert modules -->
+<script defer src="js/concerts/settings.js"></script>
+<script defer src="js/concerts/history.js"></script>
+<script defer src="js/concerts/providers.js"></script>
+<script defer src="js/concerts/map.js"></script>
+<script defer src="js/concerts/timeline.js"></script>
+<script defer src="js/concerts/search.js"></script>
+<script defer src="js/concerts/init.js"></script>
+</body>
+</html>

@@ -17,5 +17,24 @@ const SCOPES = [
   'playlist-read-collaborative',
   'user-read-playback-state',
   'user-modify-playback-state',
-  'streaming'
+  'streaming',
+  'user-top-read',
+  'user-read-recently-played'
 ].join(' ');
+
+// ============================================================
+//  CONCERTS — API keys & defaults
+//  Replace placeholders at deploy time (same pattern as SPOTIFY_CLIENT_ID).
+// ============================================================
+const TICKETMASTER_API_KEY = '__TICKETMASTER_API_KEY__';
+const TICKETMASTER_BASE   = 'https://app.ticketmaster.com/discovery/v2';
+
+const BANDSINTOWN_APP_ID  = '__BANDSINTOWN_APP_ID__';
+const BANDSINTOWN_BASE    = 'https://rest.bandsintown.com';
+
+// Default EU country codes for concert search
+const DEFAULT_CONCERT_COUNTRIES = [
+  'DE','AT','CH','NL','BE','FR','ES','IT','PT','PL',
+  'CZ','DK','SE','NO','FI','IE','GB','HU','RO','BG',
+  'HR','SI','SK','EE','LV','LT','LU','GR','CY','MT'
+];
