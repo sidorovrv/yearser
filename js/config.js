@@ -23,7 +23,7 @@ const SCOPES = [
 ].join(' ');
 
 // ============================================================
-//  CONCERTS — API keys & defaults
+//  CONCERTS — API keys & defaults 
 //  Replace placeholders at deploy time (same pattern as SPOTIFY_CLIENT_ID).
 // ============================================================
 const TICKETMASTER_API_KEY = '__TICKETMASTER_API_KEY__';
