@@ -34,6 +34,74 @@
   </div>
 </div>
 
+<!-- ===== PREFLIGHT SCREEN ===== -->
+<div id="concerts-preflight" class="screen">
+
+  <!-- Header -->
+  <div class="concerts-header">
+    <div class="concerts-header-left">
+      <a href="index.html" class="concerts-back-link">&larr; Game</a>
+      <div class="concerts-title">Select &amp; Scan</div>
+    </div>
+    <div class="concerts-header-right">
+      <div class="concerts-user-badge">
+        <img id="pf-user-avatar" src="" alt="" onerror="this.style.display='none'" />
+        <span id="pf-user-name"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cache banner (shown when stale data is available) -->
+  <div id="pf-cache-banner"></div>
+
+  <!-- Two-panel body -->
+  <div class="pf-body">
+
+    <!-- Artists panel -->
+    <div class="pf-panel pf-panel-left">
+      <div class="pf-panel-hdr">
+        <span class="pf-panel-title">Artists</span>
+        <div class="pf-btns">
+          <button class="pf-btn" onclick="pfSelectTop(20)">Top 20</button>
+          <button class="pf-btn" onclick="pfSelectTop(50)">Top 50</button>
+          <button class="pf-btn" onclick="pfSelectAll(true)">All</button>
+          <button class="pf-btn" onclick="pfSelectAll(false)">None</button>
+        </div>
+      </div>
+      <div id="pf-artists-list" class="pf-artists-list"></div>
+    </div>
+
+    <!-- Countries + cache TTL panel -->
+    <div class="pf-panel pf-panel-right">
+      <div class="pf-panel-hdr">
+        <span class="pf-panel-title">Countries</span>
+        <div class="pf-btns">
+          <button class="pf-btn" onclick="pfPresetCountries('eu')">EU</button>
+          <button class="pf-btn" onclick="pfPresetCountries('all')">All</button>
+          <button class="pf-btn" onclick="pfPresetCountries('none')">None</button>
+        </div>
+      </div>
+      <div id="pf-countries-list" class="pf-countries-list"></div>
+      <div class="pf-ttl-wrap">
+        <div class="settings-label">Cache duration</div>
+        <div class="pf-ttl-opts">
+          <label class="pf-ttl-opt"><input type="radio" name="pf-ttl" value="1"> 1 day</label>
+          <label class="pf-ttl-opt"><input type="radio" name="pf-ttl" value="3" checked> 3 days</label>
+          <label class="pf-ttl-opt"><input type="radio" name="pf-ttl" value="7"> 1 week</label>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.pf-body -->
+
+  <!-- Footer -->
+  <div class="pf-footer">
+    <span id="pf-req-hint" class="pf-req-hint"></span>
+    <button class="btn btn-primary" id="pf-scan-btn" onclick="pfStartScan()">Scan Concerts</button>
+  </div>
+
+</div>
+
 <!-- ===== MAIN MAP SCREEN ===== -->
 <div id="concerts-main" class="screen">
 
@@ -91,6 +159,8 @@
 <script defer src="js/concerts/map.js"></script>
 <script defer src="js/concerts/timeline.js"></script>
 <script defer src="js/concerts/search.js"></script>
+<script defer src="js/concerts/cache.js"></script>
+<script defer src="js/concerts/preflight.js"></script>
 <script defer src="js/concerts/init.js"></script>
 </body>
 </html>

@@ -121,10 +121,15 @@ function renderSettingsPanel() {
       return;
     }
 
-    saveConcertSettings({ countries, providers });
+    saveConcertSettings({ countries, providers, ttlDays: getCacheTtlDays() });
     // Reload page to apply
     window.location.reload();
   });
+}
+
+function getCacheTtlDays() {
+  const settings = loadConcertSettings();
+  return settings?.ttlDays || 3;
 }
 
 function toggleSettingsPanel() {

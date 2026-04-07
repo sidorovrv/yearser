@@ -32,9 +32,11 @@ const TICKETMASTER_BASE    = 'https://app.ticketmaster.com/discovery/v2';
 const BANDSINTOWN_APP_ID  = '__BANDSINTOWN_APP_ID__';
 const BANDSINTOWN_BASE    = 'https://rest.bandsintown.com';
 
-// Default EU country codes for concert search
+// Default concert countries — Hamburg-centric EU west.
+// Direct neighbours: DK, NL, BE, LU, FR, CH, AT, CZ, PL
+// Continental west + Scandinavia: SE, NO, FI, GB, IE, ES, IT, HU, SK
 const DEFAULT_CONCERT_COUNTRIES = [
-  'DE','AT','CH','NL','BE','FR','ES','IT','PT','PL',
-  'CZ','DK','SE','NO','FI','IE','GB','HU','RO','BG',
-  'HR','SI','SK','EE','LV','LT','LU','GR','CY','MT'
+  'DE',                               // primary
+  'DK','NL','BE','FR','AT','PL', // direct neighbours
+  'ES','IT','PT',              // continental west
 ];

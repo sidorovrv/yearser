@@ -481,6 +481,271 @@
   cursor: pointer;
 }
 
+/* ===== PREFLIGHT SCREEN ===== */
+
+#concerts-preflight {
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Cache banner */
+#pf-cache-banner {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: rgba(212,168,67,0.08);
+  border-bottom: 1px solid rgba(212,168,67,0.18);
+  font-size: 12px;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.pf-cache-btn {
+  background: none;
+  border: 1px solid currentColor;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 2px 9px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.pf-cache-use  { color: var(--gold); }
+.pf-cache-clear { color: rgba(245,240,232,0.35); }
+
+/* Two-panel body */
+.pf-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pf-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pf-panel-left  { flex: 0 0 62%; border-right: 1px solid rgba(255,255,255,0.06); }
+.pf-panel-right { flex: 1; }
+
+/* Panel header */
+.pf-panel-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.pf-panel-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.pf-btns { display: flex; gap: 3px; flex-shrink: 0; }
+
+.pf-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(245,240,232,0.65);
+  padding: 3px 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.12s;
+}
+.pf-btn:hover { background: rgba(255,255,255,0.12); color: var(--cream); }
+
+/* Artist list */
+.pf-artists-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.pf-artist-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background 0.1s;
+}
+.pf-artist-row:hover { background: rgba(255,255,255,0.04); }
+
+.pf-artist-row input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--teal);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+.pf-artist-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.pf-artist-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.08);
+  color: var(--cream);
+  font-size: 14px;
+}
+
+.pf-artist-body { flex: 1; min-width: 0; }
+
+.pf-artist-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.pf-artist-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cream);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pf-artist-right {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.pf-stat {
+  font-size: 10px;
+  color: rgba(245,240,232,0.45);
+  white-space: nowrap;
+  font-family: 'DM Mono', monospace;
+}
+.pf-stat-pop { color: var(--gold); }
+
+/* Affinity score bar */
+.pf-score-bar {
+  height: 3px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+.pf-score-fill {
+  height: 100%;
+  background: var(--teal);
+  border-radius: 2px;
+}
+
+/* Genre tags */
+.pf-genres { display: flex; gap: 4px; flex-wrap: wrap; }
+.pf-genre {
+  font-size: 9px;
+  background: rgba(255,255,255,0.07);
+  color: rgba(245,240,232,0.45);
+  padding: 1px 5px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* Countries list */
+.pf-countries-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-content: start;
+}
+
+.pf-country-check { font-size: 12px; }
+
+/* Cache TTL selector */
+.pf-ttl-wrap {
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+
+.pf-ttl-opts {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.pf-ttl-opt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--cream);
+  cursor: pointer;
+}
+.pf-ttl-opt input { accent-color: var(--teal); cursor: pointer; }
+
+/* Footer */
+.pf-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(10,10,10,0.95);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+
+.pf-req-hint {
+  font-size: 11px;
+  color: rgba(245,240,232,0.35);
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── Rescan button in map stats bar ── */
+.concerts-rescan-btn {
+  background: none;
+  border: 1px solid rgba(29,185,84,0.3);
+  color: var(--teal);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  padding: 1px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin-left: 8px;
+  transition: background 0.12s;
+}
+.concerts-rescan-btn:hover { background: rgba(29,185,84,0.1); }
+
+/* ── Preflight responsive (mobile) ── */
+@media (max-width: 600px) {
+  .pf-body { flex-direction: column; }
+  .pf-panel-left  { flex: none; height: 55%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .pf-panel-right { flex: 1; }
+}
+
 .settings-presets {
   display: flex;
   gap: 6px;

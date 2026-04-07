@@ -4,7 +4,7 @@
 
 window.onload = async () => {
   const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
+  const code  = params.get('code');
   const error = params.get('error');
 
   if (error) {
@@ -30,7 +30,7 @@ window.onload = async () => {
   }
 
   // Try stored token
-  const storedToken = localStorage.getItem('timelinefm_token');
+  const storedToken  = localStorage.getItem('timelinefm_token');
   const storedExpiry = parseInt(localStorage.getItem('timelinefm_token_expiry') || '0');
   if (storedToken && Date.now() < storedExpiry - 30000) {
     accessToken = storedToken;
@@ -48,27 +48,24 @@ window.onload = async () => {
   loginWithSpotify();
 };
 
+// ── Main orchestrator ── ───────────────────────────────────
+
 async function _initConcerts() {
-  _concertGoTo('concerts-loading');
+  concertGoTo('concerts-loading');
   const statusEl = document.getElementById('concerts-status');
 
   try {
-    // Fetch user profile for header
+    // Fetch user profile
     const me = await spotifyFetch('/me');
     if (!me) return;
     userId = me.id;
-    const nameEl = document.getElementById('concerts-user-name');
-    const avatarEl = document.getElementById('concerts-user-avatar');
-    if (nameEl) nameEl.textContent = me.display_name || me.id;
-    if (avatarEl && me.images && me.images[0]) avatarEl.src = me.images[0].url;
+    _setUserBadge(me.display_name || me.id, me.images?.[0]?.url);
 
-    // Load settings
-    const countries = getSelectedCountries();
-    const providers = getSelectedProviders();
-    setActiveProviders(providers);
+    setActiveProviders(getSelectedProviders());
 
-    // 1. Fetch listening history
-    const affinityMap = await fetchListeningHistory((msg) => {
+    // Fetch listening history
+    if (statusEl) statusEl.textContent = 'Analyzing your music taste…';
+    const affinityMap = await fetchListeningHistory(msg => {
       if (statusEl) statusEl.textContent = msg;
     });
 
@@ -77,40 +74,31 @@ async function _initConcerts() {
       return;
     }
 
-    // 2. Fetch concert events
-    if (statusEl) statusEl.textContent = `Searching concerts in ${countries.length} countries…`;
-    const events = await fetchAllEvents(affinityMap, countries, (msg) => {
-      if (statusEl) statusEl.textContent = msg;
-    });
+    const countries     = getSelectedCountries();
+    const topArtistIds  = [...affinityMap.keys()];
 
-    // 3. Switch to map screen
-    _concertGoTo('concerts-main');
+    // Check for a valid (fresh + fingerprint-matching) cache
+    const validCache = loadConcertsCache(countries, topArtistIds, getCacheTtlDays());
+    if (validCache) {
+      _showConcertMap(validCache.events, affinityMap, cacheAgeLabel(validCache.savedAt));
+      return;
+    }
 
-    // 4. Initialize map
-    initConcertMap('concerts-map');
+    // Check for any stale cache with the same fingerprint (offer "use anyway")
+    const staleCache = loadStaleConcertsCache(countries, topArtistIds);
 
-    // Small delay to let the DOM render the map container
-    requestAnimationFrame(() => {
-      invalidateMapSize();
-      setConcertEvents(events);
+    // Show preflight selection screen
+    initPreflight(affinityMap, staleCache || null, async (filteredMap, selectedCountries) => {
+      concertGoTo('concerts-loading');
+      setActiveProviders(getSelectedProviders());
 
-      if (events.length > 0) {
-        // 5. Init timeline slider
-        initConcertTimeline('concerts-timeline-slider', events);
+      if (statusEl) statusEl.textContent = `Scanning ${filteredMap.size} artists…`;
+      const events = await fetchAllEvents(filteredMap, selectedCountries, msg => {
+        if (statusEl) statusEl.textContent = msg;
+      });
 
-        // 6. Init search
-        initConcertSearch([...affinityMap.values()]);
-
-        // 7. Update stats
-        const statsEl = document.getElementById('concerts-stats');
-        if (statsEl) {
-          const cityCount = new Set(events.map(e => e.city)).size;
-          statsEl.textContent = `${events.length} concerts · ${cityCount} cities · ${affinityMap.size} artists`;
-        }
-      } else {
-        const statsEl = document.getElementById('concerts-stats');
-        if (statsEl) statsEl.textContent = 'No upcoming concerts found for your artists in the selected countries.';
-      }
+      saveConcertsCache(events, selectedCountries, [...filteredMap.keys()]);
+      _showConcertMap(events, affinityMap);
     });
 
   } catch (e) {
@@ -119,20 +107,70 @@ async function _initConcerts() {
   }
 }
 
-function _concertGoTo(id) {
+// ── Map display ── ─────────────────────────────────────────
+
+function _showConcertMap(events, affinityMap, cacheAge) {
+  concertGoTo('concerts-main');
+  initConcertMap('concerts-map');
+
+  requestAnimationFrame(() => {
+    invalidateMapSize();
+    setConcertEvents(events);
+
+    if (events.length > 0) {
+      initConcertTimeline('concerts-timeline-slider', events);
+      initConcertSearch([...affinityMap.values()]);
+    }
+
+    const statsEl = document.getElementById('concerts-stats');
+    if (statsEl) {
+      const cities  = new Set(events.map(e => e.city)).size;
+      const suffix  = cacheAge ? ` · cached ${cacheAge}` : '';
+      const rescan  = `<button class="concerts-rescan-btn" onclick="_rescanConcerts()">↻ Rescan</button>`;
+      if (events.length > 0) {
+        statsEl.innerHTML = `${events.length} concerts · ${cities} cities · ${affinityMap.size} artists${suffix} ${rescan}`;
+      } else {
+        statsEl.innerHTML = `No concerts found for your selection${suffix} ${rescan}`;
+      }
+    }
+  });
+}
+
+function _rescanConcerts() {
+  clearConcertsCache();
+  window.location.reload();
+}
+
+// ── Helpers ── ─────────────────────────────────────────────
+
+/** Navigate between .screen elements. Called by preflight.js too. */
+function concertGoTo(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
 }
 
+function _setUserBadge(name, avatarUrl) {
+  ['concerts-user-name', 'pf-user-name'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = name;
+  });
+  if (avatarUrl) {
+    ['concerts-user-avatar', 'pf-user-avatar'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.src = avatarUrl;
+    });
+  }
+}
+
 function _showConcertError(msg) {
-  _concertGoTo('concerts-loading');
-  const spinner = document.getElementById('concerts-spinner');
-  const status = document.getElementById('concerts-status');
+  concertGoTo('concerts-loading');
+  const spinner  = document.getElementById('concerts-spinner');
+  const status   = document.getElementById('concerts-status');
   const errorBox = document.getElementById('concerts-error');
   const errorMsg = document.getElementById('concerts-error-msg');
-  if (spinner) spinner.style.display = 'none';
-  if (status) status.style.display = 'none';
+  if (spinner)  spinner.style.display  = 'none';
+  if (status)   status.style.display   = 'none';
   if (errorBox) errorBox.style.display = 'block';
-  if (errorMsg) errorMsg.textContent = msg;
+  if (errorMsg) errorMsg.textContent   = msg;
 }

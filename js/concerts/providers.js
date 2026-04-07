@@ -47,46 +47,49 @@ async function _fetchWithRetry(url, opts = {}, retries = 2) {
 }
 
 // ============================================================
-//  TICKETMASTER
+//  TICKETMASTER — one global query per artist, filter countries client-side.
+//  This reduces N_artists × N_countries calls → N_artists calls.
 // ============================================================
 async function _fetchTicketmasterEvents(artistName, countryCodes) {
   const key = TICKETMASTER_API_KEY;
   if (!key || key === ('__TICKETMASTER' + '_API_KEY__')) return [];
 
+  const ccSet = new Set(countryCodes.map(c => c.toUpperCase()));
+
+  const params = new URLSearchParams({
+    keyword: artistName,
+    classificationName: 'music',
+    size: '50',
+    sort: 'date,asc',
+    apikey: key
+  });
+
+  const data = await _fetchWithRetry(`${TICKETMASTER_BASE}/events.json?${params}`);
+  if (!data?._embedded?.events) return [];
+
   const events = [];
+  for (const ev of data._embedded.events) {
+    const venue = ev._embedded?.venues?.[0];
+    if (!venue?.location?.latitude || !venue?.location?.longitude) continue;
 
-  for (const cc of countryCodes) {
-    const params = new URLSearchParams({
-      keyword: artistName,
-      classificationName: 'music',
-      countryCode: cc,
-      size: '20',
-      sort: 'date,asc',
-      apikey: key
+    const evCC = (venue.country?.countryCode || '').toUpperCase();
+    if (!ccSet.has(evCC)) continue; // client-side country filter
+
+    events.push({
+      id: ev.id,
+      artistName,
+      artistImageUrl: '',
+      affinityScore: 0,
+      venueName: venue.name || '',
+      city: venue.city?.name || '',
+      country: venue.country?.name || '',
+      countryCode: evCC,
+      lat: parseFloat(venue.location.latitude),
+      lng: parseFloat(venue.location.longitude),
+      date: ev.dates?.start?.dateTime || ev.dates?.start?.localDate || '',
+      url: ev.url || '',
+      provider: 'ticketmaster'
     });
-    const data = await _fetchWithRetry(`${TICKETMASTER_BASE}/events.json?${params}`);
-    if (!data || !data._embedded || !data._embedded.events) continue;
-
-    for (const ev of data._embedded.events) {
-      const venue = ev._embedded?.venues?.[0];
-      if (!venue?.location?.latitude || !venue?.location?.longitude) continue;
-
-      events.push({
-        id: ev.id,
-        artistName,
-        artistImageUrl: '',
-        affinityScore: 0,
-        venueName: venue.name || '',
-        city: venue.city?.name || '',
-        country: venue.country?.name || '',
-        countryCode: venue.country?.countryCode || cc,
-        lat: parseFloat(venue.location.latitude),
-        lng: parseFloat(venue.location.longitude),
-        date: ev.dates?.start?.dateTime || ev.dates?.start?.localDate || '',
-        url: ev.url || '',
-        provider: 'ticketmaster'
-      });
-    }
   }
   return events;
 }
