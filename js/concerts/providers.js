@@ -98,6 +98,11 @@ async function _fetchTicketmasterEvents(artistName, countryCodes) {
     const evCC = (venue.country?.countryCode || '').toUpperCase();
     if (!ccSet.has(evCC)) continue; // client-side country filter
 
+    const isFestival = !!(ev.classifications?.some(c =>
+      c.type?.name?.toLowerCase() === 'festivals' ||
+      c.subType?.name?.toLowerCase().includes('festival')
+    ) || ev.name?.toLowerCase().includes('festival'));
+
     events.push({
       id: ev.id,
       artistName,
@@ -111,6 +116,7 @@ async function _fetchTicketmasterEvents(artistName, countryCodes) {
       lng: parseFloat(venue.location.longitude),
       date: ev.dates?.start?.dateTime || ev.dates?.start?.localDate || '',
       url: ev.url || '',
+      isFestival,
       provider: 'ticketmaster'
     });
   }
@@ -150,6 +156,7 @@ async function _fetchBandsintownEvents(artistName, countryCodes) {
       lng: parseFloat(ev.venue?.longitude) || 0,
       date: ev.datetime || '',
       url: ev.url || '',
+      isFestival: !!(ev.title?.toLowerCase().includes('festival') || ev.description?.toLowerCase().includes('festival')),
       provider: 'bandsintown'
     }))
     .filter(ev => ev.lat !== 0 && ev.lng !== 0);

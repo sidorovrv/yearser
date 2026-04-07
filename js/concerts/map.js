@@ -85,6 +85,42 @@ function _clusterByCities(events) {
   return clusters;
 }
 
+// ── Circle packing: arrange N circles without overlap, packed toward the centre ──
+function _packCircles(radii) {
+  if (!radii.length) return [];
+  const GAP = 3; // px gap between circles
+  const placed = [];
+
+  for (let i = 0; i < radii.length; i++) {
+    const r = radii[i];
+    if (i === 0) { placed.push({ x: 0, y: 0, r }); continue; }
+
+    let bestX = 0, bestY = 0, bestDist = Infinity;
+    const STEPS = 72; // probe every 5°
+
+    for (let s = 0; s < STEPS; s++) {
+      const a = (s / STEPS) * Math.PI * 2;
+      // Binary-search the minimum clearance distance along this ray
+      let lo = 0, hi = 500;
+      while (hi - lo > 0.5) {
+        const mid = (lo + hi) / 2;
+        const cx = Math.cos(a) * mid;
+        const cy = Math.sin(a) * mid;
+        const hits = placed.some(p => Math.hypot(p.x - cx, p.y - cy) < p.r + r + GAP);
+        if (hits) lo = mid; else hi = mid;
+      }
+      const cx = Math.cos(a) * hi;
+      const cy = Math.sin(a) * hi;
+      const dist = Math.hypot(cx, cy);
+      if (dist < bestDist) { bestDist = dist; bestX = cx; bestY = cy; }
+    }
+
+    placed.push({ x: bestX, y: bestY, r });
+  }
+
+  return placed;
+}
+
 function _renderFiltered() {
   if (!_map || !_markersLayer) return;
   _markersLayer.clearLayers();
@@ -95,60 +131,86 @@ function _renderFiltered() {
   const clusters = _clusterByCities(events);
 
   for (const cluster of clusters) {
-    // Deduplicate artists in cluster, keep top 10 by affinity
-    const artistEventsMap = new Map();
+    // Collect unique artists; propagate festival flag if any event is a festival
+    const artistMap = new Map();
     for (const ev of cluster.events) {
       const key = ev.artistName.toLowerCase();
-      if (!artistEventsMap.has(key)) {
-        artistEventsMap.set(key, { ...ev, eventCount: 1 });
-      } else {
-        artistEventsMap.get(key).eventCount++;
+      if (!artistMap.has(key)) {
+        artistMap.set(key, { ...ev });
+      } else if (ev.isFestival) {
+        artistMap.get(key).isFestival = true;
       }
     }
 
-    const artistEntries = [...artistEventsMap.values()]
+    const artists = [...artistMap.values()]
       .sort((a, b) => b.affinityScore - a.affinityScore)
-      .slice(0, 10);
+      .slice(0, 15);
 
-    const topArtist = artistEntries[0];
-    const maxAffinity = topArtist.affinityScore;
+    // Map affinity → radius 8–20 px (diameter 16–40 px)
+    const maxAff = artists[0]?.affinityScore || 1;
+    const radii  = artists.map(a => {
+      const t = maxAff > 0 ? a.affinityScore / maxAff : 0.5;
+      return Math.round(8 + t * 12);
+    });
 
-    // Marker size: 14px (low affinity) to 44px (max affinity)
-    const markerSize = Math.round(14 + maxAffinity * 30);
+    const packed = _packCircles(radii);
 
-    // Create marker with artist avatar
-    const hasImage = topArtist.artistImageUrl;
-    const iconHtml = hasImage
-      ? `<div class="concert-marker" style="width:${markerSize}px;height:${markerSize}px">
-           <img src="${_escAttr(topArtist.artistImageUrl)}" alt="" />
-           ${artistEntries.length > 1 ? `<span class="marker-count">+${artistEntries.length - 1}</span>` : ''}
-         </div>`
-      : `<div class="concert-marker concert-marker-no-img" style="width:${markerSize}px;height:${markerSize}px">
-           <span class="marker-initial">${topArtist.artistName.charAt(0)}</span>
-           ${artistEntries.length > 1 ? `<span class="marker-count">+${artistEntries.length - 1}</span>` : ''}
-         </div>`;
+    // Bounding box → icon container size + offset so origin (0,0) is inside
+    const PAD  = 4;
+    const minX = Math.min(...packed.map(c => c.x - c.r));
+    const maxX = Math.max(...packed.map(c => c.x + c.r));
+    const minY = Math.min(...packed.map(c => c.y - c.r));
+    const maxY = Math.max(...packed.map(c => c.y + c.r));
+    const W    = Math.ceil(maxX - minX) + PAD * 2;
+    const H    = Math.ceil(maxY - minY) + PAD * 2;
+    const oX   = -Math.floor(minX) + PAD; // packed (0,0) maps to icon pixel (oX, oY)
+    const oY   = -Math.floor(minY) + PAD;
+
+    // Build HTML — one absolutely-positioned bubble per artist
+    let html = `<div style="position:relative;width:${W}px;height:${H}px">`;
+
+    for (let i = 0; i < artists.length; i++) {
+      const a = artists[i];
+      const c = packed[i];
+      const d = c.r * 2;
+      const l = Math.round(c.x + oX - c.r);
+      const t = Math.round(c.y + oY - c.r);
+      const fs = Math.max(8, Math.round(c.r * 0.8));
+
+      const inner = a.artistImageUrl
+        ? `<img src="${_escAttr(a.artistImageUrl)}" alt="" />`
+        : `<span class="marker-initial" style="font-size:${fs}px">${_esc(a.artistName.charAt(0))}</span>`;
+
+      const badge = a.isFestival
+        ? `<span class="marker-festival-badge" title="Festival">F</span>` : '';
+
+      html +=
+        `<div class="concert-bubble-wrap" ` +
+          `style="left:${l}px;top:${t}px;width:${d}px;height:${d}px;z-index:${artists.length - i}" ` +
+          `title="${_escAttr(a.artistName)}">` +
+          `<div class="concert-bubble">${inner}</div>` +
+          badge +
+        `</div>`;
+    }
+
+    html += '</div>';
 
     const icon = L.divIcon({
-      html: iconHtml,
-      className: 'concert-marker-wrapper',
-      iconSize: [markerSize, markerSize],
-      iconAnchor: [markerSize / 2, markerSize / 2]
+      html,
+      className: 'concert-cluster-wrapper',
+      iconSize:   [W, H],
+      iconAnchor: [oX, oY]
     });
 
     const marker = L.marker([cluster.lat, cluster.lng], { icon });
-
-    // Build popup
-    const popupContent = _buildPopup(cluster.city, cluster.events);
-    marker.bindPopup(popupContent, {
+    marker.bindPopup(_buildPopup(cluster.city, cluster.events), {
       maxWidth: 320,
-      maxHeight: 360,
       className: 'concert-popup'
     });
-
     _markersLayer.addLayer(marker);
   }
 
-  // Fit bounds if we have markers
+  // Fit map to all clusters
   if (clusters.length > 0) {
     const bounds = clusters.map(c => [c.lat, c.lng]);
     _map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
