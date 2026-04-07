@@ -1,0 +1,4 @@
+# Local secrets for PartyKit dev server (npx partykit dev)
+# Copy this file to .dev.vars and fill in your values.
+# .dev.vars is git-ignored — never commit it.
+TICKETMASTER_API_KEY=your_ticketmaster_api_key_here

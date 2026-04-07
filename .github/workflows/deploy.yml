@@ -31,10 +31,12 @@ jobs:
           sed -i "s/__SPOTIFY_CLIENT_ID__/${{ secrets.SPOTIFY_CLIENT_ID }}/g" js/config.js
 
       - name: Inject PartyKit Host
-        # Replaces the placeholder with the deployed PartyKit server host.
-        # Format: yearser.YOUR_USERNAME.partykit.dev  (no https://, no trailing slash)
         run: |
           sed -i "s/__PARTYKIT_HOST__/${{ secrets.PARTYKIT_HOST }}/g" js/config.js
+
+      - name: Inject Ticketmaster API Key
+        run: |
+          sed -i "s/__TICKETMASTER_API_KEY__/${{ secrets.TICKETMASTER_API_KEY }}/g" js/config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

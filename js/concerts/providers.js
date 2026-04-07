@@ -22,12 +22,19 @@ function getActiveProviders() {
   return [..._activeProviders];
 }
 
-// ── Rate-limit helpers ──
+// ── Helpers ──
 function _delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function _fetchWithRetry(url, opts = {}, retries = 2) {
   for (let i = 0; i <= retries; i++) {
-    const res = await fetch(url, opts);
+    let res;
+    try {
+      res = await fetch(url, opts);
+    } catch {
+      if (i === retries) return null;
+      await _delay(500);
+      continue;
+    }
     if (res.status === 429) {
       const wait = parseInt(res.headers.get('Retry-After') || '2', 10) * 1000;
       await _delay(Math.min(wait, 5000));

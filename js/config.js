@@ -23,11 +23,11 @@ const SCOPES = [
 ].join(' ');
 
 // ============================================================
-//  CONCERTS — API keys & defaults 
-//  Replace placeholders at deploy time (same pattern as SPOTIFY_CLIENT_ID).
+//  CONCERTS — API keys & defaults
+//  Injected at deploy time the same way as SPOTIFY_CLIENT_ID.
 // ============================================================
 const TICKETMASTER_API_KEY = '__TICKETMASTER_API_KEY__';
-const TICKETMASTER_BASE   = 'https://app.ticketmaster.com/discovery/v2';
+const TICKETMASTER_BASE    = 'https://app.ticketmaster.com/discovery/v2';
 
 const BANDSINTOWN_APP_ID  = '__BANDSINTOWN_APP_ID__';
 const BANDSINTOWN_BASE    = 'https://rest.bandsintown.com';
