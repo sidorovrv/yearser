@@ -47,23 +47,46 @@ async function _fetchWithRetry(url, opts = {}, retries = 2) {
 }
 
 // ============================================================
-//  TICKETMASTER — one global query per artist, filter countries client-side.
-//  This reduces N_artists × N_countries calls → N_artists calls.
+//  TICKETMASTER — two-step lookup per artist:
+//  1. /attractions → resolve exact attraction ID (avoids tribute/impersonator results)
+//  2. /events?attractionId=... → fetch their actual events
+//  Falls back to keyword search if no attraction is found.
 // ============================================================
+
+/**
+ * Resolve the Ticketmaster attraction ID for an artist name.
+ * Returns the ID of the best match, or null if none found.
+ * Uses exact name match first, then falls back to the top relevance result.
+ */
+async function _lookupTMAttractionId(artistName, key) {
+  const params = new URLSearchParams({
+    keyword: artistName,
+    classificationName: 'music',
+    size: '5',
+    apikey: key
+  });
+  const data = await _fetchWithRetry(`${TICKETMASTER_BASE}/attractions.json?${params}`);
+  const attractions = data?._embedded?.attractions;
+  if (!attractions?.length) return null;
+  // Prefer an exact case-insensitive name match; otherwise take the top result
+  const exact = attractions.find(a => a.name.toLowerCase() === artistName.toLowerCase());
+  return (exact ?? attractions[0]).id;
+}
+
 async function _fetchTicketmasterEvents(artistName, countryCodes) {
   const key = TICKETMASTER_API_KEY;
   if (!key || key === ('__TICKETMASTER' + '_API_KEY__')) return [];
 
   const ccSet = new Set(countryCodes.map(c => c.toUpperCase()));
 
-  const params = new URLSearchParams({
-    keyword: artistName,
-    classificationName: 'music',
-    size: '50',
-    sort: 'date,asc',
-    apikey: key
-  });
+  // Step 1: resolve exact attraction ID to avoid tribute/impersonator leakage
+  const attractionId = await _lookupTMAttractionId(artistName, key);
 
+  const query = attractionId
+    ? { attractionId, classificationName: 'music', size: '50', sort: 'date,asc', apikey: key }
+    : { keyword: artistName, classificationName: 'music', size: '50', sort: 'date,asc', apikey: key };
+
+  const params = new URLSearchParams(query);
   const data = await _fetchWithRetry(`${TICKETMASTER_BASE}/events.json?${params}`);
   if (!data?._embedded?.events) return [];
 
